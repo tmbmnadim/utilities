@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-
-import './home/home.dart';
+import 'package:get/get.dart';
+import 'package:utilities/controllers/location_controller.dart';
+import 'package:utilities/controllers/permission_controller.dart';
+import 'package:utilities/routes/routes.dart';
 
 void main() {
   runApp(UtilitiesApp());
@@ -12,10 +14,13 @@ class UtilitiesApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    Get.put(PermissionController(), permanent: true);
+    Get.put(LocationController(), permanent: true);
+    return GetMaterialApp(
       title: "Utilities App",
       builder: EasyLoading.init(),
-      home: Home(),
+      initialRoute: AppPages.initial,
+      getPages: AppPages.routes,
     );
   }
 }

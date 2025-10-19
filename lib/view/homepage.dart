@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 import 'package:utilities/controllers/test_controller.dart';
 import 'package:utilities/utils/controller_utils.dart';
 
-class Home extends StatelessWidget {
-  const Home({super.key});
+class Homepage extends StatelessWidget {
+  const Homepage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final testCtrl = Get.put(TestController());
-    // final testState = testCtrl.state;
     return Scaffold(
-      appBar: AppBar(title: Text("TESTING AND CREATING UTILS")),
       body: Obx(() {
         ControllerUtils.showGameStatus(testCtrl.status);
         return Column(
@@ -33,7 +30,7 @@ class Home extends StatelessWidget {
               },
               child: Text("PRESS TO TEST"),
             ),
-            SizedBox(height: 10)
+            SizedBox(height: 10),
           ],
         );
       }),

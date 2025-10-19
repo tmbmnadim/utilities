@@ -1,0 +1,56 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:utilities/controllers/home_controller.dart';
+import 'package:utilities/controllers/permission_controller.dart';
+
+class Home extends StatefulWidget {
+  const Home({super.key});
+
+  @override
+  State<Home> createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
+  final homeCtrl = Get.find<HomeController>();
+  final permissionCtrl = Get.find<PermissionController>();
+
+  @override
+  void initState() {
+    super.initState();
+    permissionCtrl.getLocationPermissions();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("TESTING AND CREATING UTILS")),
+      body: PageView(
+        physics: NeverScrollableScrollPhysics(),
+        controller: homeCtrl.pageController,
+        children: homeCtrl.pages,
+      ),
+      bottomNavigationBar: Obx(() {
+        return BottomNavigationBar(
+          currentIndex: homeCtrl.currentIndex,
+          onTap: (value) {
+            if (!permissionCtrl.location.isGranted && value == 1) {
+              permissionCtrl.getLocationPermissions();
+              EasyLoading.showError("Location Permission is required!");
+              return;
+            }
+            homeCtrl.animateToPage(value);
+          },
+          items: [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_filled),
+              label: "Home",
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.map), label: "Map"),
+          ],
+        );
+      }),
+    );
+  }
+}

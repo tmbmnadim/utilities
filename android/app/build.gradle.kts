@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -19,15 +22,26 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.utilities"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+    val localProperties = Properties()
+    localProperties.load(FileInputStream(rootProject.file("local.properties")))
+
+    var googleMapsApiKey: String? = localProperties.getProperty("googleMapsApiKey")
+
+    if (googleMapsApiKey == null) {
+        // Fallback for CI/CD environments or if local.properties is missing
+        googleMapsApiKey = System.getenv("GOOGLE_MAPS_API_KEY_ENVIRONMENT_VARIABLE")
+    }
+
+    android {
+        defaultConfig {
+            applicationId = "com.example.utilities"
+            minSdk = flutter.minSdkVersion
+            targetSdk = flutter.targetSdkVersion
+            versionCode = flutter.versionCode
+            versionName = flutter.versionName
+
+            manifestPlaceholders.put("googleMapsApiKey", googleMapsApiKey ?: "")
+        }
     }
 
     buildTypes {
