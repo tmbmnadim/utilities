@@ -46,6 +46,9 @@ dependencies:
   google_maps_flutter: ^2.13.1
   permission_handler: ^12.0.1
   geolocator: ^14.0.2
+  flutter_polyline_points: ^3.1.0
+  flutter_dotenv: ^6.0.0
+  widget_to_marker: ^1.0.6
 
 dev_dependencies:
   flutter_test:
@@ -70,8 +73,11 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+    - assets/
+    - assets/images/
+    - assets/icons/
+    - assets/icons/png/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

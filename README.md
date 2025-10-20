@@ -14,3 +14,5 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+<a href="https://www.flaticon.com/free-icons/push-pin" title="push pin icons">Push pin icons created by Smashicons - Flaticon</a>
