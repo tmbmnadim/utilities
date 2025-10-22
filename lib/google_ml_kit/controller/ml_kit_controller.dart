@@ -56,7 +56,8 @@ class MLKitController extends GetxController {
         ResolutionPreset.high,
         imageFormatGroup: imageFormatGroup,
       );
-      await _camController?.initialize();
+      if(_camController == null) throw Exception("Failed to initialize camera!");
+      await _camController!.initialize();
       _status = MlKitControllerStatus.readyToTakePhoto;
       update();
     } catch (e) {

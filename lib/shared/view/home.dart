@@ -26,7 +26,9 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     return Obx(() {
       return Scaffold(
-        appBar: AppBar(title: Text(homeCtrl.title)),
+        appBar: homeCtrl.currentIndex == 3
+            ? null
+            : AppBar(title: Text(homeCtrl.title)),
         body: PageView(
           physics: NeverScrollableScrollPhysics(),
           controller: homeCtrl.pageController,
@@ -34,6 +36,10 @@ class _HomeState extends State<Home> {
         ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: homeCtrl.currentIndex,
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          selectedItemColor: Theme.of(context).colorScheme.onPrimary,
+          unselectedItemColor: Theme.of(context).colorScheme.primaryFixedDim,
           onTap: (value) {
             if (!permissionCtrl.location.isGranted && value == 1) {
               permissionCtrl.getLocationPermissions();
@@ -51,6 +57,10 @@ class _HomeState extends State<Home> {
             BottomNavigationBarItem(
               icon: Icon(Icons.computer),
               label: "ML Kit",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_rounded),
+              label: "Chat AI",
             ),
           ],
         ),

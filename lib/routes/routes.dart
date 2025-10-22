@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:utilities/artificial_intelligence/presentation/view/artificial_intelligence.dart';
 import 'package:utilities/shared/controller/home_controller.dart';
 import 'package:utilities/shared/view/home.dart';
 import 'package:utilities/google_map/view/map_page.dart';
@@ -21,5 +22,6 @@ class AppRoutes {
       name: Routes.mlKitPage,
       page: () => MLKitScreen(),
     ),
+    GetPage(name: Routes.aiChat, page: () => AiChatScreen()),
   ];
 }
