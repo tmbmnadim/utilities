@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:utilities/utils/controller_utils.dart';
 
 class MLKitController extends GetxController {
@@ -50,7 +52,7 @@ class MLKitController extends GetxController {
           : ImageFormatGroup.bgra8888;
       _camController = CameraController(
         available[0],
-        ResolutionPreset.medium,
+        ResolutionPreset.high,
         imageFormatGroup: imageFormatGroup,
       );
       await _camController?.initialize();
@@ -66,6 +68,7 @@ class MLKitController extends GetxController {
       if (_camController == null) await initialize();
       final picture = await _camController!.takePicture();
       _captured = picture.path;
+      if (_captured == null) return;
       await _camController!.pausePreview();
       _status = MlKitControllerStatus.captured;
       update();
@@ -97,11 +100,9 @@ class MLKitController extends GetxController {
             throw TimeoutException("Timeout: Camera Controller not closed!"),
       );
       _camController = null;
-      log("CAMERA CLOSED");
-      log("SCANNING BARCODE");
       switch (_option) {
         case MlKitOptions.barcodeScanning:
-          await _scanForText();
+          await _scanBarcode();
         case MlKitOptions.textRecognitionv2:
           await _scanForText();
         case MlKitOptions.faceDetection:
@@ -111,7 +112,6 @@ class MLKitController extends GetxController {
         case MlKitOptions.imageLabeling:
           throw Exception("Not Implemented");
       }
-      await _scanBarcode();
       _status = MlKitControllerStatus.processed;
       update();
     } catch (e) {
@@ -127,14 +127,16 @@ class MLKitController extends GetxController {
 
   Future<void> _scanBarcode() async {
     try {
+      if (_captured == null) throw Exception("Image is not available");
+      if (!File(_captured!).existsSync()) throw Exception("Image not found!");
       _results.clear();
       final scanner = BarcodeScanner();
       final inputImage = InputImage.fromFilePath(_captured!);
       final barcodes = await scanner.processImage(inputImage);
       scanner.close();
       for (var barcode in barcodes) {
-        final value = barcode.value;
-        _results.add(value.toString());
+        final value = barcode.rawValue;
+        _results.add(value ?? "No Data");
       }
     } catch (e) {
       _handleError(e, "MLKitController<_scanBarcode>:");
@@ -143,15 +145,21 @@ class MLKitController extends GetxController {
 
   Future<void> _scanForText() async {
     try {
+      if (_captured == null) throw Exception("Image is empty!");
+      if (!File(_captured!).existsSync()) throw Exception("Image not found!");
       _results.clear();
       final scanner = TextRecognizer();
       final inputImage = InputImage.fromFilePath(_captured!);
       final result = await scanner.processImage(inputImage);
-      scanner.close();
-
-      _results.add(result.text);
+      await scanner.close();
+      for (var block in result.blocks) {
+        log(block.text);
+        log(block.recognizedLanguages.toString());
+        log(block.lines.toString());
+      }
+      _results.addAll(result.blocks.map((e) => e.text));
     } catch (e) {
-      _handleError(e, "MLKitController<_scanBarcode>:");
+      _handleError(e, "MLKitController<_scanForText>:");
     }
   }
 
@@ -177,14 +185,14 @@ enum MlKitOptions {
     switch (this) {
       case MlKitOptions.barcodeScanning:
         return "Barcode Scanning";
+      case MlKitOptions.textRecognitionv2:
+        return "Text Recognition v2";
       case MlKitOptions.faceDetection:
         return "Face Detection";
       case MlKitOptions.faceMeshDetection:
         return "Face Mesh Detection (Beta)";
       case MlKitOptions.imageLabeling:
         return "Image Labeling";
-      case MlKitOptions.textRecognitionv2:
-        return "Text Recognition v2";
     }
   }
 }
