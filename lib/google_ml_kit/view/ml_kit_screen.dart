@@ -1,5 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 import 'package:utilities/google_ml_kit/controller/ml_kit_controller.dart';
 import 'package:utilities/utils/controller_utils.dart';
@@ -37,7 +38,11 @@ class _MLKitScreenState extends State<MLKitScreen> {
                       return Expanded(
                         child: Center(child: CircularProgressIndicator()),
                       );
+                    case MlKitControllerStatus.streaming:
                     case MlKitControllerStatus.readyToTakePhoto:
+                      return Expanded(child: CameraPreview(ctrl.cameraCtrl));
+                    case MlKitControllerStatus.detected:
+                      EasyLoading.showSuccess(ctrl.scanResults.toString());
                       return Expanded(child: CameraPreview(ctrl.cameraCtrl));
                     case MlKitControllerStatus.captured:
                       return Expanded(
@@ -45,22 +50,14 @@ class _MLKitScreenState extends State<MLKitScreen> {
                       );
                     case MlKitControllerStatus.failure:
                       return Expanded(
-                        child: Center(
-                          child: Text(
-                            "Failed to initialize camera!\n${ctrl.errorMessage}",
-                          ),
-                        ),
+                        child: Center(child: Text(ctrl.errorMessage)),
                       );
                     case MlKitControllerStatus.processed:
                       return Expanded(
                         child: Builder(
                           builder: (context) {
                             if (ctrl.scanResults.isEmpty) {
-                              return Center(
-                                child: Text(
-                                  "Result is empty",
-                                ),
-                              );
+                              return Center(child: Text("Result is empty"));
                             }
                             return ListView.builder(
                               itemCount: ctrl.scanResults.length,
@@ -82,6 +79,18 @@ class _MLKitScreenState extends State<MLKitScreen> {
                     SizedBox(width: 0),
                     if (ctrl.status == MlKitControllerStatus.readyToTakePhoto)
                       ElevatedButton(
+                        onPressed: () => ctrl.startImageScanning(),
+                        child: Text("Start Scanning"),
+                      )
+                    else if (ctrl.status == MlKitControllerStatus.streaming ||
+                        ctrl.status == MlKitControllerStatus.detected ||
+                        ctrl.status == MlKitControllerStatus.failure)
+                      ElevatedButton(
+                        onPressed: () => ctrl.stopScanning(),
+                        child: Text("Stop Scanning"),
+                      ),
+                    if (ctrl.status == MlKitControllerStatus.readyToTakePhoto)
+                      ElevatedButton(
                         onPressed: () => ctrl.takePicture(),
                         child: Text("Take Picture"),
                       )
@@ -100,7 +109,10 @@ class _MLKitScreenState extends State<MLKitScreen> {
                         onPressed: () => ctrl.retakePicture(),
                         child: Text("Take another"),
                       ),
-                    _dropDownMenu(context, mlkCtrl),
+                    if (ctrl.status == MlKitControllerStatus.readyToTakePhoto ||
+                        ctrl.status == MlKitControllerStatus.streaming ||
+                        ctrl.status == MlKitControllerStatus.detected)
+                      _dropDownMenu(context, mlkCtrl),
                     SizedBox(width: 0),
                   ],
                 ),
@@ -131,7 +143,7 @@ class _MLKitScreenState extends State<MLKitScreen> {
         items: MlKitOptions.values.map((value) {
           return DropdownMenuItem(
             value: value,
-            enabled: value.index < 2,
+            enabled: value.index < 3,
             child: Text(value.toTitle()),
             onTap: () => mlkCtrl.changeOption(value),
           );

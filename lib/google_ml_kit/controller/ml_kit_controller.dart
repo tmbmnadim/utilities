@@ -3,12 +3,13 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart' show WriteBuffer;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:utilities/utils/controller_utils.dart';
 
 class MLKitController extends GetxController {
@@ -77,6 +78,81 @@ class MLKitController extends GetxController {
     }
   }
 
+  Future<void> startImageScanning() async {
+    try {
+      if (_camController == null) await initialize();
+
+      bool isBusy = false;
+
+      await _camController!.startImageStream((CameraImage image) async {
+        if (image.planes.isEmpty) {
+          log("⚠️ CameraImage has no planes — skipping frame");
+          return;
+        }
+        if (isBusy) return;
+        isBusy = true;
+
+        try {
+          // Convert the camera image to InputImage for ML Kit
+          final inputImage = _convertCameraImage(
+            image,
+            _camController!.description,
+          );
+
+          // Process the frame based on selected ML Kit option
+          switch (_option) {
+            case MlKitOptions.barcodeScanning:
+              await _scanBarcode(inputImage);
+              _status = MlKitControllerStatus.detected;
+              update();
+              break;
+
+            case MlKitOptions.textRecognitionv2:
+              await _scanForText(inputImage);
+              _status = MlKitControllerStatus.detected;
+              update();
+              break;
+
+            case MlKitOptions.faceDetection:
+              await _scanForFace(inputImage);
+              _status = MlKitControllerStatus.detected;
+              update();
+              break;
+
+            default:
+              log("Option not implemented for streaming.");
+          }
+          await Future.delayed(const Duration(milliseconds: 800));
+        } catch (e) {
+          _handleError(e, "MLKitController<startImageStreaming>:");
+        } finally {
+          isBusy = false;
+        }
+      });
+      _status = MlKitControllerStatus.streaming;
+      update();
+    } catch (e) {
+      _handleError(e, "MLKitController<startImageStreaming> outer:");
+    }
+  }
+
+  Future<void> stopScanning() async {
+    try {
+      if (_camController == null) return;
+      if (!_camController!.value.isStreamingImages) {
+        _status = MlKitControllerStatus.readyToTakePhoto;
+        update();
+        return;
+      }
+
+      _camController!.stopImageStream();
+      _status = MlKitControllerStatus.readyToTakePhoto;
+      update();
+    } catch (e) {
+      _handleError(e, "MLKitController<stopScanning>:");
+    }
+  }
+
   Future<void> retakePicture() async {
     try {
       if (_camController == null) await initialize();
@@ -106,7 +182,7 @@ class MLKitController extends GetxController {
         case MlKitOptions.textRecognitionv2:
           await _scanForText();
         case MlKitOptions.faceDetection:
-          throw Exception("Not Implemented");
+          await _scanForFace();
         case MlKitOptions.faceMeshDetection:
           throw Exception("Not Implemented");
         case MlKitOptions.imageLabeling:
@@ -125,42 +201,129 @@ class MLKitController extends GetxController {
     update();
   }
 
-  Future<void> _scanBarcode() async {
+  Future<void> _scanBarcode([InputImage? input]) async {
     try {
-      if (_captured == null) throw Exception("Image is not available");
-      if (!File(_captured!).existsSync()) throw Exception("Image not found!");
+      if (_captured == null && input == null) {
+        throw Exception("Image is not available");
+      }
+      if (_captured != null && !File(_captured!).existsSync()) {
+        throw Exception("Image not found!");
+      }
       _results.clear();
       final scanner = BarcodeScanner();
-      final inputImage = InputImage.fromFilePath(_captured!);
+      final inputImage = input ?? InputImage.fromFilePath(_captured!);
       final barcodes = await scanner.processImage(inputImage);
       scanner.close();
       for (var barcode in barcodes) {
         final value = barcode.rawValue;
         _results.add(value ?? "No Data");
       }
+      _captured = null;
     } catch (e) {
       _handleError(e, "MLKitController<_scanBarcode>:");
     }
   }
 
-  Future<void> _scanForText() async {
+  Future<void> _scanForText([InputImage? input]) async {
     try {
-      if (_captured == null) throw Exception("Image is empty!");
-      if (!File(_captured!).existsSync()) throw Exception("Image not found!");
+      if (_captured == null && input == null) {
+        throw Exception("Image is not available");
+      }
+      if (_captured != null && !File(_captured!).existsSync()) {
+        throw Exception("Image not found!");
+      }
       _results.clear();
       final scanner = TextRecognizer();
-      final inputImage = InputImage.fromFilePath(_captured!);
+      final inputImage = input ?? InputImage.fromFilePath(_captured!);
       final result = await scanner.processImage(inputImage);
       await scanner.close();
-      for (var block in result.blocks) {
-        log(block.text);
-        log(block.recognizedLanguages.toString());
-        log(block.lines.toString());
-      }
       _results.addAll(result.blocks.map((e) => e.text));
+      _captured = null;
     } catch (e) {
       _handleError(e, "MLKitController<_scanForText>:");
     }
+  }
+
+  Future<void> _scanForFace([InputImage? input]) async {
+    try {
+      if (_captured == null && input == null) {
+        throw Exception("Image is not available");
+      }
+      if (_captured != null && !File(_captured!).existsSync()) {
+        throw Exception("Image not found!");
+      }
+      _results.clear();
+      final scanner = FaceDetector(options: FaceDetectorOptions());
+      final inputImage = input ?? InputImage.fromFilePath(_captured!);
+      final result = await scanner.processImage(inputImage);
+      await scanner.close();
+      for (var res in result) {
+        // double smiling = res.smilingProbability ?? 0;
+          _results.add(res.contours.entries.first.value?.type.toString()??"NO CONTOUR");
+        // if (smiling > 0.7) {
+        // } else if (smiling > 0.5) {
+        //   _results.add("Looks like a smile");
+        // } else if (smiling > 0.3) {
+        //   _results.add("hmmm! you should smile");
+        // } else {
+        //   _results.add("A neutral face");
+        // }
+      }
+      _captured = null;
+    } catch (e) {
+      _handleError(e, "MLKitController<_scanForText>:");
+    }
+  }
+
+  Object _createScannerForOption(MlKitOptions option) {
+    switch (option) {
+      case MlKitOptions.barcodeScanning:
+        return BarcodeScanner();
+      case MlKitOptions.faceDetection:
+        return FaceDetector(
+          options: FaceDetectorOptions(
+            enableContours: true,
+            enableLandmarks: true,
+          ),
+        );
+      case MlKitOptions.imageLabeling:
+        return ImageLabeler(options: ImageLabelerOptions());
+      default:
+        throw UnimplementedError("MLKit option not implemented for stream");
+    }
+  }
+
+  InputImage _convertCameraImage(
+    CameraImage image,
+    CameraDescription description,
+  ) {
+    final rotation =
+        InputImageRotationValue.fromRawValue(description.sensorOrientation) ??
+        InputImageRotation.rotation0deg;
+
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+
+    // Check if format is supported
+    if (format == null ||
+        (Platform.isAndroid && format != InputImageFormat.nv21) ||
+        (Platform.isIOS && format != InputImageFormat.bgra8888)) {
+      throw UnsupportedError(
+        'Unsupported image format: ${image.format.raw}. '
+        'ML Kit supports nv21 (Android) and bgra8888 (iOS)',
+      );
+    }
+
+    final metadata = InputImageMetadata(
+      size: Size(image.width.toDouble(), image.height.toDouble()),
+      rotation: rotation,
+      format: format,
+      bytesPerRow: image.planes.first.bytesPerRow,
+    );
+    if (image.planes.length != 1)
+      throw UnsupportedError('Only one image plane is supported!');
+    final plane = image.planes.first;
+
+    return InputImage.fromBytes(bytes: plane.bytes, metadata: metadata);
   }
 
   void _handleError(Object e, [String context = ""]) {
