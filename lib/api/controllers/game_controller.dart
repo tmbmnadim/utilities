@@ -1,12 +1,11 @@
 import 'dart:developer';
 
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
-import 'package:utilities/cat_fact_model.dart';
-import 'package:utilities/repositories/test_repository.dart';
+import 'package:utilities/api/models/game_model.dart';
+import 'package:utilities/api/repositories/game_repository.dart';
 import 'package:utilities/utils/controller_utils.dart';
 
-class TestController extends GetxController {
+class GameController extends GetxController {
   final TestRepository _repo = TestRepository();
 
   // ============================================= State

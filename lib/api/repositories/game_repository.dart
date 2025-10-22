@@ -1,5 +1,5 @@
-import 'package:utilities/cat_fact_model.dart';
-import 'package:utilities/sources/test_source.dart';
+import 'package:utilities/api/models/game_model.dart';
+import 'package:utilities/api/sources/game_source.dart';
 import 'package:utilities/utils/data_state.dart';
 import 'package:utilities/utils/repository_error_handler.dart';
 

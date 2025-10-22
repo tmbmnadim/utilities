@@ -1,22 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:utilities/controllers/location_controller.dart';
+import 'package:utilities/google_map/controllers/location_controller.dart';
 import 'package:utilities/utils/custom_marker.dart';
 
-class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+class MapScreen extends StatefulWidget {
+  const MapScreen({super.key});
 
   @override
-  State<MapPage> createState() => _MapPageState();
+  State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapPageState extends State<MapPage> {
+class _MapScreenState extends State<MapScreen> {
   final locationCtrl = Get.find<LocationController>();
+  Timer? _timer;
   @override
   void initState() {
     super.initState();
-    locationCtrl.getCurrentLocation();
+    _timer = Timer(Duration(milliseconds: 300), () {
+      locationCtrl.getCurrentLocation();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       locationCtrl.setUserMarkerIcon(
         context,
@@ -43,6 +48,7 @@ class _MapPageState extends State<MapPage> {
 
   @override
   void dispose() {
+    _timer?.cancel();
     super.dispose();
     locationCtrl.disposeContents();
   }
@@ -95,25 +101,29 @@ class _MapPageState extends State<MapPage> {
                 )
               else if (ctrl.locationNotFound)
                 Expanded(
-                  child: Text(
-                    "Couldn't get location!",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.redAccent,
+                  child: Center(
+                    child: Text(
+                      "Location not fetched!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.redAccent,
+                      ),
                     ),
                   ),
                 )
               else
                 Expanded(
-                  child: Text(
-                    "Location was not initialized!",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.redAccent,
+                  child: Center(
+                    child: Text(
+                      "Location was not initialized!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.redAccent,
+                      ),
                     ),
                   ),
                 ),

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:utilities/controllers/test_controller.dart';
+import 'package:utilities/api/controllers/game_controller.dart';
 import 'package:utilities/utils/controller_utils.dart';
 
-class Homepage extends StatelessWidget {
-  const Homepage({super.key});
+class ApiScreen extends StatelessWidget {
+  const ApiScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final testCtrl = Get.put(TestController());
+    final testCtrl = Get.put(GameController());
     return Scaffold(
       body: Obx(() {
         ControllerUtils.showGameStatus(testCtrl.status);

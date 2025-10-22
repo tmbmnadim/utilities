@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:utilities/controllers/home_controller.dart';
-import 'package:utilities/controllers/permission_controller.dart';
+import 'package:utilities/shared/controller/home_controller.dart';
+import 'package:utilities/shared/controller/permission_controller.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -24,15 +24,15 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("TESTING AND CREATING UTILS")),
-      body: PageView(
-        physics: NeverScrollableScrollPhysics(),
-        controller: homeCtrl.pageController,
-        children: homeCtrl.pages,
-      ),
-      bottomNavigationBar: Obx(() {
-        return BottomNavigationBar(
+    return Obx(() {
+      return Scaffold(
+        appBar: AppBar(title: Text(homeCtrl.title)),
+        body: PageView(
+          physics: NeverScrollableScrollPhysics(),
+          controller: homeCtrl.pageController,
+          children: homeCtrl.pages,
+        ),
+        bottomNavigationBar: BottomNavigationBar(
           currentIndex: homeCtrl.currentIndex,
           onTap: (value) {
             if (!permissionCtrl.location.isGranted && value == 1) {
@@ -45,12 +45,16 @@ class _HomeState extends State<Home> {
           items: [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_filled),
-              label: "Home",
+              label: "API",
             ),
             BottomNavigationBarItem(icon: Icon(Icons.map), label: "Map"),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.computer),
+              label: "ML Kit",
+            ),
           ],
-        );
-      }),
-    );
+        ),
+      );
+    });
   }
 }

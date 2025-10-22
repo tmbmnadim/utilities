@@ -8,13 +8,16 @@ class PermissionController extends GetxController {
     _initialize();
   }
   late PermissionStatus _location;
+  late PermissionStatus _camera;
   String _errorMessage = "Nothing to report!";
 
   PermissionStatus get location => _location;
+  PermissionStatus get camera => _camera;
   String get errorMessage => _errorMessage;
 
   Future<void> _initialize() async {
     _location = await Permission.locationWhenInUse.status;
+    _camera = await Permission.camera.status;
   }
 
   Future<void> getLocationPermissions() async {
@@ -25,9 +28,15 @@ class PermissionController extends GetxController {
     }
   }
 
-  Future<PermissionStatus> _checkAndRequest(
-    PermissionWithService service,
-  ) async {
+  Future<void> getCameraPermissions() async {
+    try {
+      _camera = await _checkAndRequest(Permission.camera);
+    } catch (e) {
+      log(e.toString());
+    }
+  }
+
+  Future<PermissionStatus> _checkAndRequest(Permission service) async {
     final status = await service.status;
     if (!status.isGranted) {
       await service.request();

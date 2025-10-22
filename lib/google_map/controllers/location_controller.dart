@@ -146,6 +146,7 @@ class LocationController extends GetxController {
     VoidCallback? onTap,
   }) async {
     try {
+      if(!context.mounted) return;
       _pinMarkerIcon = await _processMarkerIcon(context, icon);
     } catch (e) {
       _handleError(e, "LocationController<setUserMarkerIcon>:");

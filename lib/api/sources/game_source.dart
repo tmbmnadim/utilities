@@ -2,7 +2,7 @@ import 'dart:developer';
 
 import 'package:utilities/utils/api_manager.dart';
 
-import '../cat_fact_model.dart';
+import '../models/game_model.dart';
 
 class TestSource {
   TestSource();

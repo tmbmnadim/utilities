@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:utilities/view/homepage.dart';
-import 'package:utilities/view/map_page.dart';
+import 'package:utilities/api/view/api_page.dart';
+import 'package:utilities/google_map/view/map_page.dart';
+import 'package:utilities/google_ml_kit/view/ml_kit_screen.dart';
 
 class HomeBinding extends Bindings {
   @override
@@ -13,9 +14,16 @@ class HomeBinding extends Bindings {
 class HomeController extends GetxController {
   PageController pageController = PageController();
 
-  final List<Widget> _pages = [Homepage(), MapPage()];
+  // final List<Widget> _pages = [ApiScreen(), MapScreen(), MLKitScreen()];
+  final Map<String, Widget> _pages = {
+    "Game API": ApiScreen(),
+    "Map": MapScreen(),
+    "ML Kit": MLKitScreen(),
+  };
 
-  List<Widget> get pages => _pages;
+  List<String> get titles => _pages.keys.toList();
+  String get title => _pages.keys.toList()[currentIndex];
+  List<Widget> get pages => _pages.values.toList();
 
   final RxInt _currentIndex = 0.obs;
   int get currentIndex => _currentIndex.value;

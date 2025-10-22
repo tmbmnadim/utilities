@@ -2,6 +2,8 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 enum ControllerStatus { initial, loading, success, updated, created, failure }
 
+enum MlKitControllerStatus { initial, loading, readyToTakePhoto, captured, processed, failure }
+
 class ControllerUtils {
   static bool showLoading = false;
   static void showGameStatus(ControllerStatus status) {
