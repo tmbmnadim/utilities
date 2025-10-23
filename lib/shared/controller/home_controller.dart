@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:utilities/api/view/api_page.dart';
+import 'package:utilities/artificial_intelligence/presentation/view/ai_base.dart';
 import 'package:utilities/artificial_intelligence/presentation/view/artificial_intelligence.dart';
 import 'package:utilities/google_map/view/map_page.dart';
 import 'package:utilities/google_ml_kit/view/ml_kit_screen.dart';
@@ -20,7 +21,7 @@ class HomeController extends GetxController {
     "Game API": ApiScreen(),
     "Map": MapScreen(),
     "ML Kit": MLKitScreen(),
-    "AI Chat": AiChatScreen(),
+    "AI Chat": AiChatBase(),
   };
 
   List<String> get titles => _pages.keys.toList();

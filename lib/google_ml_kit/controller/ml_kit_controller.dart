@@ -19,6 +19,7 @@ class MLKitController extends GetxController {
   String? _captured;
   final List<String> _results = [];
   String _error = "";
+  Timer? _debouncer;
 
   MlKitOptions get option => _option;
   CameraController get cameraCtrl => _camController!;
@@ -30,13 +31,17 @@ class MLKitController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    initialize();
+    _debouncer = Timer(Durations.medium4, () {
+      initialize();
+    });
   }
 
   @override
   void onClose() {
     super.onClose();
-    _camController!.dispose();
+    _debouncer?.cancel();
+    _camController?.dispose();
+    _camController = null;
   }
 
   Future<void> initialize() async {
@@ -56,7 +61,8 @@ class MLKitController extends GetxController {
         ResolutionPreset.high,
         imageFormatGroup: imageFormatGroup,
       );
-      if(_camController == null) throw Exception("Failed to initialize camera!");
+      if (_camController == null)
+        throw Exception("Failed to initialize camera!");
       await _camController!.initialize();
       _status = MlKitControllerStatus.readyToTakePhoto;
       update();
@@ -260,7 +266,9 @@ class MLKitController extends GetxController {
       await scanner.close();
       for (var res in result) {
         // double smiling = res.smilingProbability ?? 0;
-          _results.add(res.contours.entries.first.value?.type.toString()??"NO CONTOUR");
+        _results.add(
+          res.contours.entries.first.value?.type.toString() ?? "NO CONTOUR",
+        );
         // if (smiling > 0.7) {
         // } else if (smiling > 0.5) {
         //   _results.add("Looks like a smile");

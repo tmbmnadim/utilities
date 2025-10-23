@@ -7,12 +7,12 @@ abstract class AiChatEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class AiChatInitialized extends AiChatEvent {}
+class InitializeAIChat extends AiChatEvent {}
 
-class AiChatMessageSent extends AiChatEvent {
+class SendMessagePressed extends AiChatEvent {
   final String prompt;
 
-  const AiChatMessageSent(this.prompt);
+  const SendMessagePressed(this.prompt);
 
   @override
   List<Object?> get props => [prompt];

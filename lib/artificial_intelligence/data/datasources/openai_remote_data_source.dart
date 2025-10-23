@@ -1,32 +1,64 @@
 import 'package:dart_openai/dart_openai.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/chat_message_model.dart';
 
 abstract class OpenAIRemoteDataSource {
-  Future<String> sendPrompt(String prompt, List<ChatMessageModel> history);
+  Future<String> initialize();
+  Future<ChatMessageModel> sendPrompt(
+    String prompt, {
+    required List<ChatMessageModel> history,
+    required String model,
+  });
 }
 
 class OpenAIRemoteDataSourceImpl implements OpenAIRemoteDataSource {
   @override
-  Future<String> sendPrompt(
-    String prompt,
-    List<ChatMessageModel> history,
-  ) async {
+  Future<String> initialize() async {
+    final apiKey = dotenv.env["OPEN_AI_API_KEY"];
+    if (apiKey == null) throw Exception("Api key is empty!");
+
+    // Assigning API Key
+    OpenAI.apiKey = apiKey;
+
+    // Fetching available list of models
+    final models = await OpenAI.instance.model.list();
+    if (models.isEmpty) throw Exception("No models found!");
+
+    for (var model in models) {
+      if (model.havePermission) {
+        return model.id;
+      }
+    }
+    throw Exception("No working model found!");
+  }
+
+  @override
+  Future<ChatMessageModel> sendPrompt(
+    String prompt, {
+    required List<ChatMessageModel> history,
+    required String model,
+  }) async {
     final messages = [
       ...history.map(
-        (m) => {"role": m.isUser ? "user" : "assistant", "content": m.content},
+        (h) => {
+          "role": h.isUser
+              ? OpenAIChatMessageRole.user
+              : OpenAIChatMessageRole.assistant,
+          "content": h.content,
+        },
       ),
-      {"role": "user", "content": prompt},
+      {"role": OpenAIChatMessageRole.user, "content": prompt},
     ];
 
     final chatCompletion = await OpenAI.instance.chat.create(
-      model: "gpt-3.5-turbo",
+      model: model,
       messages: messages
           .map(
             (m) => OpenAIChatCompletionChoiceMessageModel(
-              role:OpenAIChatMessageRole.assistant,
+              role: m["role"]! as OpenAIChatMessageRole,
               content: [
                 OpenAIChatCompletionChoiceMessageContentItemModel.text(
-                  m["content"]!,
+                  m["content"]! as String,
                 ),
               ],
             ),
@@ -34,7 +66,15 @@ class OpenAIRemoteDataSourceImpl implements OpenAIRemoteDataSource {
           .toList(),
     );
 
-    return chatCompletion.choices.first.message.content?.first.text?.trim() ??
-        '';
+    final output = ChatMessageModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      content:
+          chatCompletion.choices.first.message.content?.first.text?.trim() ??
+          '',
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+
+    return output;
   }
 }

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:utilities/artificial_intelligence/presentation/bloc/ai_chat_bloc.dart';
+import 'package:utilities/artificial_intelligence/presentation/bloc/ai_chat_event.dart';
+import 'package:utilities/artificial_intelligence/presentation/bloc/ai_chat_state.dart';
 
-import '../../data/models/chat_message_model.dart';
+import '../../ai_injection_container.dart';
 import '../../domain/entities/chat_message.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -11,98 +16,27 @@ class AiChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<AiChatScreen> {
-  final TextEditingController _controller = TextEditingController();
-  final List<ChatMessage> _messages = [];
+  final TextEditingController _msgCtrl = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
-  bool _isInitializing = true;
-  bool _hasError = false;
-  bool _isSending = false;
-  bool _isAITyping = false;
+  bool _sendPressed = false;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
-  }
-
-  Future<void> _initialize() async {
-    try {
-      // Simulate initialization (loading models, connecting to service, etc.)
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (mounted) {
-        setState(() {
-          _isInitializing = false;
-          _hasError = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isInitializing = false;
-          _hasError = true;
-        });
-      }
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AiChatBloc>().add(InitializeAIChat());
+    });
   }
 
   Future<void> _sendMessage() async {
-    if (_controller.text.trim().isEmpty || _isSending) return;
-
-    final messageText = _controller.text;
-    _controller.clear();
-
-    setState(() {
-      _isSending = true;
-      _messages.add(
-        ChatMessage(
-          id: "0",
-          content: messageText,
-          isUser: true,
-          timestamp: DateTime.now(),
-        ),
-      );
-    });
-
-    _scrollToBottom();
-
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() {
-      _isSending = false;
-      _isAITyping = true;
-    });
-
-    _scrollToBottom();
-
-    // Simulate AI response delay
-    await Future.delayed(const Duration(milliseconds: 1500));
-
-    if (mounted) {
-      setState(() {
-        _isAITyping = false;
-        _messages.add(
-          ChatMessage(
-            id: "0",
-            content: _getAIResponse(messageText),
-            isUser: false,
-            timestamp: DateTime.now(),
-          ),
-        );
-      });
-      _scrollToBottom();
+    if (_msgCtrl.text.isEmpty) {
+      EasyLoading.showError("Message is empty!");
+      return;
     }
-  }
-
-  String _getAIResponse(String message) {
-    if (message.toLowerCase().contains('hello') ||
-        message.toLowerCase().contains('hi')) {
-      return 'Hello! How can I help you today?';
-    } else if (message.toLowerCase().contains('how are you')) {
-      return 'I\'m doing well, thank you for asking! How can I assist you?';
-    }
-    return 'I understand your message. This is a demo AI response. In a real app, this would connect to an AI service.';
+    _sendPressed = true;
+    context.read<AiChatBloc>().add(SendMessagePressed(_msgCtrl.text));
+    _msgCtrl.clear();
+    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -119,70 +53,129 @@ class _ChatScreenState extends State<AiChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isInitializing) {
-      return _buildLoadingScreen();
-    }
-
-    if (_hasError) {
-      return _buildErrorScreen();
-    }
-
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                ),
-                borderRadius: BorderRadius.circular(8),
+      appBar: AppBar(elevation: 0, title: _buildAppBarTitle()),
+      body: BlocConsumer<AiChatBloc, AiChatState>(
+        listenWhen: (previous, current) => _sendPressed,
+        listener: (context, state) {
+          if (state.status.isLoading) {
+          } else if (state.status.isSuccess) {
+            _scrollToBottom();
+            _sendPressed = true;
+          } else if (state.status.isError) {
+            _sendPressed = false;
+          } else {
+            _sendPressed = false;
+          }
+        },
+        builder: (context, state) {
+          if (state.status.isInitial) {
+            return _buildLoadingScreen();
+          }
+
+          if (state.status.isError && state.model == null) {
+            return _buildErrorScreen(
+              title: 'Failed to Initialize',
+              description:
+                  'Unable to connect to the AI service. Please check your connection and try again.',
+            );
+          }
+          List<ChatMessage> messages = state.messages;
+          bool isLoading = state.status.isLoading;
+          return Column(
+            children: [
+              Expanded(
+                child: state.status.isError
+                    ? _buildErrorScreen(
+                        title: "Failed to send message!",
+                        description: state.error ?? "",
+                      )
+                    : messages.isEmpty && !isLoading
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: messages.length + (isLoading ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == messages.length && isLoading) {
+                            return _buildTypingIndicator();
+                          }
+                          return _buildMessageBubble(messages[index]);
+                        },
+                      ),
               ),
-              child: const Icon(Icons.smart_toy, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'AI Assistant',
-              style: TextStyle(
-                color: Color(0xFF2D3748),
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+              _buildInputArea(),
+            ],
+          );
+        },
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _messages.isEmpty && !_isAITyping
-                ? _buildEmptyState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length + (_isAITyping ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == _messages.length && _isAITyping) {
-                        return _buildTypingIndicator();
-                      }
-                      return _buildMessageBubble(_messages[index]);
-                    },
-                  ),
+    );
+  }
+
+  Widget _buildAppBarTitle() {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+            ),
+            borderRadius: BorderRadius.circular(8),
           ),
-          _buildInputArea(),
+          child: const Icon(Icons.smart_toy, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 12),
+        const Text(
+          'AI Assistant',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(Icons.smart_toy, color: Colors.white, size: 40),
+          ),
+          const SizedBox(height: 32),
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667EEA)),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Initializing AI Assistant...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF718096),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLoadingScreen() {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
+  Widget _buildErrorScreen({
+    required String? title,
+    required String description,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -190,95 +183,49 @@ class _ChatScreenState extends State<AiChatScreen> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                ),
+                color: const Color(0xFFFEE2E2),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(Icons.smart_toy, color: Colors.white, size: 40),
+              child: const Icon(
+                Icons.error_outline,
+                color: Color(0xFFEF4444),
+                size: 40,
+              ),
             ),
-            const SizedBox(height: 32),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667EEA)),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Initializing AI Assistant...',
+            const SizedBox(height: 24),
+            Text(
+              title ?? "An Error Occured",
               style: TextStyle(
-                fontSize: 16,
-                color: Color(0xFF718096),
-                fontWeight: FontWeight.w500,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2D3748),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Color(0xFF718096)),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF667EEA),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Retry',
+                style: TextStyle(fontSize: 16, color: Colors.white),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorScreen() {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.error_outline,
-                  color: Color(0xFFEF4444),
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Failed to Initialize',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF2D3748),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Unable to connect to the AI service. Please check your connection and try again.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Color(0xFF718096)),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _isInitializing = true;
-                    _hasError = false;
-                  });
-                  _initialize();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF667EEA),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Retry',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -391,11 +338,7 @@ class _ChatScreenState extends State<AiChatScreen> {
           ),
         );
       },
-      onEnd: () {
-        if (mounted && _isAITyping) {
-          setState(() {});
-        }
-      },
+      onEnd: () {},
     );
   }
 
@@ -470,79 +413,86 @@ class _ChatScreenState extends State<AiChatScreen> {
   }
 
   Widget _buildInputArea() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7FAFC),
-                borderRadius: BorderRadius.circular(24),
+    return BlocBuilder<AiChatBloc, AiChatState>(
+      builder: (context, state) {
+        bool isSending = state.status.isLoading;
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(13),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
               ),
-              child: TextField(
-                controller: _controller,
-                enabled: !_isSending,
-                decoration: const InputDecoration(
-                  hintText: 'Type a message...',
-                  hintStyle: TextStyle(color: Color(0xFFA0AEC0)),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
+            ],
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FAFC),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: TextField(
+                    controller: _msgCtrl,
+                    enabled: !isSending,
+                    decoration: const InputDecoration(
+                      hintText: 'Type a message...',
+                      hintStyle: TextStyle(color: Color(0xFFA0AEC0)),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                    textInputAction: TextInputAction.send,
                   ),
                 ),
-                onSubmitted: (_) => _sendMessage(),
-                textInputAction: TextInputAction.send,
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _isSending
-                    ? [
-                        const Color(0xFF667EEA).withAlpha(179),
-                        const Color(0xFF764BA2).withAlpha(179),
-                      ]
-                    : [const Color(0xFF667EEA), const Color(0xFF764BA2)],
+              const SizedBox(width: 12),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isSending
+                        ? [
+                            const Color(0xFF667EEA).withAlpha(179),
+                            const Color(0xFF764BA2).withAlpha(179),
+                          ]
+                        : [const Color(0xFF667EEA), const Color(0xFF764BA2)],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: IconButton(
+                  onPressed: isSending ? null : _sendMessage,
+                  icon: isSending
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, color: Colors.white),
+                  padding: const EdgeInsets.all(12),
+                ),
               ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: IconButton(
-              onPressed: _isSending ? null : _sendMessage,
-              icon: _isSending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.send_rounded, color: Colors.white),
-              padding: const EdgeInsets.all(12),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _msgCtrl.dispose();
     _scrollController.dispose();
     super.dispose();
   }
