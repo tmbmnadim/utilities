@@ -9,13 +9,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.utilities"
+    namespace = "me.mansurnadim.utilities"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
@@ -34,8 +34,8 @@ android {
 
     android {
         defaultConfig {
-            applicationId = "com.example.utilities"
-            minSdk = flutter.minSdkVersion
+            applicationId = "me.mansurnadim.utilities"
+            minSdk = 24
             targetSdk = flutter.targetSdkVersion
             versionCode = flutter.versionCode
             versionName = flutter.versionName

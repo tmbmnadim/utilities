@@ -6,8 +6,10 @@ import 'package:utilities/api/view/api_page.dart';
 import 'package:utilities/artificial_intelligence/presentation/view/ai_base.dart';
 import 'package:utilities/google_map/view/map_page.dart';
 import 'package:utilities/google_ml_kit/view/ml_kit_screen.dart';
+import 'package:utilities/live_communication/view/live.dart';
 import 'package:utilities/shared/controller/home_controller.dart';
 import 'package:utilities/shared/controller/permission_controller.dart';
+import 'package:utilities/utils/buttons.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -32,19 +34,19 @@ class _HomeState extends State<Home> {
       appBar: AppBar(title: Text("List of Features")),
       body: Column(
         children: [
-          _expandedButton(
+          AppButtons.expandedButton(
             text: "API Testing",
             onPressed: () {
               Get.to(ApiScreen());
             },
           ),
-          _expandedButton(
+          AppButtons.expandedButton(
             text: "ML Kit",
             onPressed: () {
               Get.to(MLKitScreen());
             },
           ),
-          _expandedButton(
+          AppButtons.expandedButton(
             text: "Map Screen",
             onPressed: () {
               if (!permissionCtrl.location.isGranted) {
@@ -55,13 +57,18 @@ class _HomeState extends State<Home> {
               Get.to(MapScreen());
             },
           ),
-          _expandedButton(
+          AppButtons.expandedButton(
             text: "AI Chat",
             onPressed: () {
               Get.to(AiChatBase());
             },
           ),
-          _expandedButton(text: "Live Video", onPressed: () {}),
+          AppButtons.expandedButton(
+            text: "Live Video",
+            onPressed: () {
+              Get.to(LiveScreen());
+            },
+          ),
         ],
       ),
       // body: PageView(
@@ -99,19 +106,6 @@ class _HomeState extends State<Home> {
       //     ),
       //   ],
       // ),
-    );
-  }
-
-  Widget _expandedButton({
-    required String text,
-    required VoidCallback onPressed,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton(onPressed: onPressed, child: Text(text)),
-        ),
-      ],
     );
   }
 }
