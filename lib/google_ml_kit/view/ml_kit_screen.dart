@@ -23,6 +23,7 @@ class _MLKitScreenState extends State<MLKitScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: Text("ML Kit Scanner")),
       body: GetBuilder<MLKitController>(
         builder: (mlkCtrl) {
           return Column(

@@ -1,21 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:utilities/artificial_intelligence/presentation/bloc/ai_chat_bloc.dart';
-import 'package:utilities/artificial_intelligence/presentation/bloc/ai_chat_event.dart';
-import 'package:utilities/artificial_intelligence/presentation/bloc/ai_chat_state.dart';
+part of 'ai_base.dart';
 
-import '../../ai_injection_container.dart';
-import '../../domain/entities/chat_message.dart';
-
-class AiChatScreen extends StatefulWidget {
-  const AiChatScreen({super.key});
+class _AiChatScreen extends StatefulWidget {
+  const _AiChatScreen();
 
   @override
-  State<AiChatScreen> createState() => _ChatScreenState();
+  State<_AiChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<AiChatScreen> {
+class _ChatScreenState extends State<_AiChatScreen> {
   final TextEditingController _msgCtrl = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _sendPressed = false;

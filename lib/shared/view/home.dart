@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:utilities/api/view/api_page.dart';
+import 'package:utilities/artificial_intelligence/presentation/view/ai_base.dart';
+import 'package:utilities/google_map/view/map_page.dart';
+import 'package:utilities/google_ml_kit/view/ml_kit_screen.dart';
 import 'package:utilities/shared/controller/home_controller.dart';
 import 'package:utilities/shared/controller/permission_controller.dart';
 
@@ -24,47 +28,90 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      return Scaffold(
-        appBar: homeCtrl.currentIndex == 3
-            ? null
-            : AppBar(title: Text(homeCtrl.title)),
-        body: PageView(
-          physics: NeverScrollableScrollPhysics(),
-          controller: homeCtrl.pageController,
-          children: homeCtrl.pages,
+    return Scaffold(
+      appBar: AppBar(title: Text("List of Features")),
+      body: Column(
+        children: [
+          _expandedButton(
+            text: "API Testing",
+            onPressed: () {
+              Get.to(ApiScreen());
+            },
+          ),
+          _expandedButton(
+            text: "ML Kit",
+            onPressed: () {
+              Get.to(MLKitScreen());
+            },
+          ),
+          _expandedButton(
+            text: "Map Screen",
+            onPressed: () {
+              if (!permissionCtrl.location.isGranted) {
+                permissionCtrl.getLocationPermissions();
+                EasyLoading.showError("Location Permission is required!");
+                return;
+              }
+              Get.to(MapScreen());
+            },
+          ),
+          _expandedButton(
+            text: "AI Chat",
+            onPressed: () {
+              Get.to(AiChatBase());
+            },
+          ),
+          _expandedButton(text: "Live Video", onPressed: () {}),
+        ],
+      ),
+      // body: PageView(
+      //   physics: NeverScrollableScrollPhysics(),
+      //   controller: homeCtrl.pageController,
+      //   children: homeCtrl.pages,
+      // ),
+      // bottomNavigationBar: BottomNavigationBar(
+      //   currentIndex: homeCtrl.currentIndex,
+      //   type: BottomNavigationBarType.fixed,
+      //   backgroundColor: Theme.of(context).colorScheme.primary,
+      //   selectedItemColor: Theme.of(context).colorScheme.onPrimary,
+      //   unselectedItemColor: Theme.of(context).colorScheme.primaryFixedDim,
+      //   onTap: (value) {
+      //     if (!permissionCtrl.location.isGranted && value == 1) {
+      //       permissionCtrl.getLocationPermissions();
+      //       EasyLoading.showError("Location Permission is required!");
+      //       return;
+      //     }
+      //     homeCtrl.animateToPage(value);
+      //   },
+      //   items: [
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.home_filled),
+      //       label: "API",
+      //     ),
+      //     BottomNavigationBarItem(icon: Icon(Icons.map), label: "Map"),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.computer),
+      //       label: "ML Kit",
+      //     ),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.chat_rounded),
+      //       label: "Chat AI",
+      //     ),
+      //   ],
+      // ),
+    );
+  }
+
+  Widget _expandedButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(onPressed: onPressed, child: Text(text)),
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: homeCtrl.currentIndex,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          selectedItemColor: Theme.of(context).colorScheme.onPrimary,
-          unselectedItemColor: Theme.of(context).colorScheme.primaryFixedDim,
-          onTap: (value) {
-            if (!permissionCtrl.location.isGranted && value == 1) {
-              permissionCtrl.getLocationPermissions();
-              EasyLoading.showError("Location Permission is required!");
-              return;
-            }
-            homeCtrl.animateToPage(value);
-          },
-          items: [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_filled),
-              label: "API",
-            ),
-            BottomNavigationBarItem(icon: Icon(Icons.map), label: "Map"),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.computer),
-              label: "ML Kit",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.chat_rounded),
-              label: "Chat AI",
-            ),
-          ],
-        ),
-      );
-    });
+      ],
+    );
   }
 }

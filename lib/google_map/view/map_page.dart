@@ -19,9 +19,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer(Duration(milliseconds: 300), () {
-      locationCtrl.getCurrentLocation();
-    });
+    locationCtrl.getCurrentLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       locationCtrl.setUserMarkerIcon(
         context,
@@ -56,6 +54,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: Text("Google Map")),
       backgroundColor: Color(0xFFFFFFE4),
       body: GetBuilder<LocationController>(
         builder: (ctrl) {

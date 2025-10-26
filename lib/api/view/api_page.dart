@@ -10,6 +10,7 @@ class ApiScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final testCtrl = Get.put(GameController());
     return Scaffold(
+      appBar: AppBar(title: Text("API Testing")),
       body: Obx(() {
         ControllerUtils.showGameStatus(testCtrl.status);
         return Column(

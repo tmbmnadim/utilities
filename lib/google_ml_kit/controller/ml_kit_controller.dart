@@ -19,7 +19,6 @@ class MLKitController extends GetxController {
   String? _captured;
   final List<String> _results = [];
   String _error = "";
-  Timer? _debouncer;
 
   MlKitOptions get option => _option;
   CameraController get cameraCtrl => _camController!;
@@ -31,15 +30,12 @@ class MLKitController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _debouncer = Timer(Durations.medium4, () {
-      initialize();
-    });
+    initialize();
   }
 
   @override
   void onClose() {
     super.onClose();
-    _debouncer?.cancel();
     _camController?.dispose();
     _camController = null;
   }
