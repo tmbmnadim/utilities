@@ -30,6 +30,17 @@ class LiveController extends GetxController {
     _selectedMeeting.value = meeting;
   }
 
+  Future<void> intialize() async {
+    try {
+      state = state.copyWith(localRenderer: RTCVideoRenderer());
+      state.remoteRenderers.addAll({});
+      state.localRenderer!.initialize();
+    } catch (e, s) {
+      _handleErrors("createUser", e, s);
+      update();
+    }
+  }
+
   Future<void> createUser(
     String name, {
     VoidCallback? onSuccess,
