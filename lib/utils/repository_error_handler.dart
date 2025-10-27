@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:utilities/live_communication/models/server_error.dart';
 import 'package:utilities/utils/exceptions.dart';
 
 import 'data_state.dart';
@@ -59,8 +60,14 @@ class RepositoryErrorHandler {
         error: e,
         e.message ?? "Server Exception!",
       );
+    } on WebRTCServerException catch (e) {
+      return DataFailed(
+        code: 0,
+        error: e.type,
+        e.data?.message ?? "Unknown Error",
+      );
     } catch (e) {
-      return DataFailed(proxyMessage, code: 400, error: e);
+      return DataFailed(e.toString(), code: 400, error: e);
     }
   }
 }

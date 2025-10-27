@@ -8,9 +8,13 @@ class LiveState {
   final bool isStreaming;
   final bool isMuted;
   final bool isCameraOff;
+  final bool isConnectedToWS;
+  final bool isUserRegistered;
   final LiveSessionStatus status;
-  final List<LiveUser> users;
+  final LiveUser? user;
+  final List<LiveUser> _availableUsers;
   final LiveMeeting? currentMeeting;
+  final List<LiveMeeting> availableMeetings;
   final String errorMessage;
 
   LiveState({
@@ -18,11 +22,23 @@ class LiveState {
     this.isStreaming = false,
     this.isMuted = false,
     this.isCameraOff = false,
+    this.isConnectedToWS = false,
+    this.isUserRegistered = false,
     this.status = LiveSessionStatus.idle,
-    this.users = const [],
+    this.user,
+    List<LiveUser> availableUsers = const [],
+    this.availableMeetings = const [],
     this.currentMeeting,
     this.errorMessage = "",
-  });
+  }) : _availableUsers = availableUsers;
+
+  List<LiveUser> get availableUsers {
+    List<LiveUser> listWithoutCurrent = [];
+    for (var item in _availableUsers) {
+      listWithoutCurrent.addIf(user?.id != item.id, item);
+    }
+    return listWithoutCurrent;
+  }
 
   final Map<String, dynamic> iceServers = {
     'iceServers': [
@@ -35,9 +51,13 @@ class LiveState {
     bool? isStreaming,
     bool? isMuted,
     bool? isCameraOff,
+    bool? isConnectedToWS,
+    bool? isUserRegistered,
     LiveSessionStatus? status,
-    List<LiveUser>? users,
+    LiveUser? user,
+    List<LiveUser>? availableUsers,
     LiveMeeting? currentMeeting,
+    List<LiveMeeting>? availableMeetings,
     String? errorMessage,
   }) {
     return LiveState(
@@ -45,19 +65,26 @@ class LiveState {
       isStreaming: isStreaming ?? this.isStreaming,
       isMuted: isMuted ?? this.isMuted,
       isCameraOff: isCameraOff ?? this.isCameraOff,
+      isConnectedToWS: isConnectedToWS ?? this.isConnectedToWS,
+      isUserRegistered: isUserRegistered ?? this.isUserRegistered,
       status: status ?? this.status,
-      users: users ?? this.users,
+      user: user ?? this.user,
+      availableUsers: availableUsers ?? this.availableUsers,
       currentMeeting: currentMeeting ?? this.currentMeeting,
+      availableMeetings: availableMeetings ?? this.availableMeetings,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 }
 
 enum LiveSessionStatus {
+  intial,
+  loading,
   idle,
   success,
   localReady,
-  connecting,
+  connected,
+  registered,
   live,
   failed,
   ended,
