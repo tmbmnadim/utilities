@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:ui';
-
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide navigator;
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:utilities/live_communication/models/live_meeting.dart';
 import 'package:utilities/live_communication/models/live_message.dart';
@@ -17,29 +16,20 @@ class LiveController extends GetxController {
   final LiveRepository _repository = LiveRepository();
 
   StreamSubscription? _streamSubscription;
-
   final Rx<LiveUser?> _selectedUser = Rx(null);
   LiveUser? get selectedUser => _selectedUser.value;
-  set selectedUser(LiveUser? user) {
-    _selectedUser.value = user;
-  }
+  set selectedUser(LiveUser? user) => _selectedUser.value = user;
 
   final Rx<LiveMeeting?> _selectedMeeting = Rx(null);
   LiveMeeting? get selectedMeeting => _selectedMeeting.value;
-  set selectedMeeting(LiveMeeting? meeting) {
-    _selectedMeeting.value = meeting;
-  }
+  set selectedMeeting(LiveMeeting? meeting) => _selectedMeeting.value = meeting;
 
-  Future<void> intialize() async {
-    try {
-      state = state.copyWith(localRenderer: RTCVideoRenderer());
-      state.remoteRenderers.addAll({});
-      state.localRenderer!.initialize();
-    } catch (e, s) {
-      _handleErrors("createUser", e, s);
-      update();
-    }
-  }
+  final Map<String, RTCPeerConnection> _peerConnections = {};
+  final Map<String, List<RTCIceCandidate>> _pendingCandidates = {};
+
+  RTCSessionDescription? _myOffer;
+
+  // ---------------------- USER REGISTRATION ----------------------
 
   Future<void> createUser(
     String name, {
@@ -47,7 +37,6 @@ class LiveController extends GetxController {
     Function(String error)? onFailure,
   }) async {
     try {
-      log("LiveController<createUser> Called");
       state = state.copyWith(status: LiveSessionStatus.loading);
       update();
 
@@ -59,18 +48,37 @@ class LiveController extends GetxController {
           status: LiveSessionStatus.success,
         );
         update();
-        if (onSuccess != null) {
-          onSuccess();
-        }
+        await registerUser();
+        onSuccess?.call();
       } else {
         throw datastate.getMessage("Failed to create user!");
       }
     } catch (e, s) {
       _handleErrors("createUser", e, s);
+      onFailure?.call(e.toString());
+    }
+  }
+
+  Future<void> registerUser() async {
+    try {
+      final message = LiveMessage(
+        type: LiveMessageType.register,
+        userId: state.user!.id,
+      );
+      final datastate = await _repository.sendWS(message);
+      if (datastate is DataFailed) throw datastate.getMessage("");
+
+      final renderer = RTCVideoRenderer();
+      await renderer.initialize();
+
+      state = state.copyWith(
+        localRenderer: renderer,
+        isUserRegistered: true,
+        status: LiveSessionStatus.registered,
+      );
       update();
-      if (onFailure != null) {
-        onFailure(e.toString());
-      }
+    } catch (e, s) {
+      _handleErrors("registerUser", e, s);
     }
   }
 
@@ -79,29 +87,33 @@ class LiveController extends GetxController {
     Function(String error)? onFailure,
   }) async {
     try {
+      log("LiveController<loadUsers> called");
       state = state.copyWith(status: LiveSessionStatus.loading);
       update();
+
       final datastate = await _repository.getUsers();
-      if (datastate is DataSuccess) {
+
+      if (datastate is DataSuccess<List<LiveUser>>) {
+        final users = datastate.getData();
+        log("LiveController<loadUsers> loaded ${users?.length} users");
+
         state = state.copyWith(
-          availableUsers: datastate.getData(),
+          availableUsers: users,
           status: LiveSessionStatus.success,
         );
         update();
-        if (onSuccess != null) {
-          onSuccess();
-        }
+        onSuccess?.call();
       } else {
-        throw datastate.getMessage("Failed to load users!");
+        final message = datastate.getMessage("Failed to load users!");
+        throw Exception(message);
       }
     } catch (e, s) {
       _handleErrors("loadUsers", e, s);
-      update();
-      if (onFailure != null) {
-        onFailure(e.toString());
-      }
+      onFailure?.call(e.toString());
     }
   }
+
+  // ---------------------- MEETINGS ----------------------
 
   Future<void> createMeeting(
     String name, {
@@ -115,18 +127,13 @@ class LiveController extends GetxController {
           currentMeeting: datastate.getData(),
           status: LiveSessionStatus.success,
         );
-        if (onSuccess != null) {
-          onSuccess();
-        }
+        onSuccess?.call();
       } else {
-        throw datastate.getMessage("Failed to load users!");
+        throw datastate.getMessage("Failed to create meeting!");
       }
     } catch (e, s) {
-      _handleErrors("loadUsers", e, s);
-      update();
-      if (onFailure != null) {
-        onFailure(e.toString());
-      }
+      _handleErrors("createMeeting", e, s);
+      onFailure?.call(e.toString());
     }
   }
 
@@ -137,6 +144,7 @@ class LiveController extends GetxController {
     try {
       state = state.copyWith(status: LiveSessionStatus.loading);
       update();
+
       final datastate = await _repository.getMeetings();
       if (datastate is DataSuccess) {
         state = state.copyWith(
@@ -144,149 +152,229 @@ class LiveController extends GetxController {
           status: LiveSessionStatus.success,
         );
         update();
-        if (onSuccess != null) {
-          onSuccess();
-        }
+        onSuccess?.call();
       } else {
         throw datastate.getMessage("Failed to load meetings!");
       }
     } catch (e, s) {
       _handleErrors("getMeetings", e, s);
-      update();
-      if (onFailure != null) {
-        onFailure(e.toString());
-      }
+      onFailure?.call(e.toString());
     }
   }
+
+  // ---------------------- SOCKET CONNECTION ----------------------
 
   void connectWS({
-    required Function(String error) onSuccess,
-    Function(String error)? onFailure,
+    required Function(String) onSuccess,
+    Function(String)? onFailure,
   }) async {
     try {
-      state = state.copyWith(status: LiveSessionStatus.loading);
-      update();
       final datastate = await _repository.connectWebSocket();
-      if (datastate is DataSuccess) {
-        final stream = datastate.getData();
-        if (stream == null) throw "Stream is empty";
-        _streamSubscription = stream.listen((event) {
-          log("LiveController<connectWS>:$event");
-          final status = LiveMessage.fromJson(event);
-          switch (status.type) {
-            case StatusType.register:
-              state = state.copyWith(status: LiveSessionStatus.loading);
-              update();
-            case StatusType.registered:
-              onSuccess("User is online");
+      if (datastate is! DataSuccess) throw "Failed to connect WebSocket";
 
-              state = state.copyWith(
-                status: LiveSessionStatus.registered,
-                isUserRegistered: true,
-              );
-              update();
-            case StatusType.join:
-              state = state.copyWith(status: LiveSessionStatus.loading);
-              update();
-            case StatusType.participantJoined:
-              onSuccess("${status.userId} Joined the meeting");
-              state = state.copyWith(status: LiveSessionStatus.live);
-              update();
-            case StatusType.leave:
-              state = state.copyWith(status: LiveSessionStatus.loading);
-              update();
-            case StatusType.participantLeft:
-              onSuccess("${status.userId} left the meeting");
-            case StatusType.error:
-              onSuccess(status.message ?? "Something went wrong");
-          }
-        });
+      final stream = datastate.getData();
+      if (stream == null) throw "WebSocket stream is empty";
 
-        state = state.copyWith(
-          status: LiveSessionStatus.connected,
-          isConnectedToWS: true,
-        );
-        update();
-        onSuccess("Connected to socket!");
-      } else {
-        throw datastate.getMessage("Failed to connect to ws!");
-      }
+      _streamSubscription = stream.listen((event) async {
+        final message = LiveMessage.fromJson(event);
+        log("LiveController<WS Message>: ${message.type}");
+
+        switch (message.type) {
+          case LiveMessageType.registered:
+            state = state.copyWith(
+              isUserRegistered: true,
+              status: LiveSessionStatus.registered,
+            );
+            update();
+            break;
+
+          case LiveMessageType.participantJoined:
+            await _handleParticipantJoined(message);
+            break;
+
+          case LiveMessageType.webrtcOffer:
+            await _handleOffer(message);
+            break;
+
+          case LiveMessageType.webrtcAnswer:
+            await _handleAnswer(message);
+            break;
+
+          case LiveMessageType.webICECandidate:
+            await _handleRemoteCandidate(message);
+            break;
+
+          default:
+            log("Unhandled message type: ${message.type}");
+        }
+      });
+
+      state = state.copyWith(isConnectedToWS: true);
+      update();
+      onSuccess("Connected to WebSocket!");
     } catch (e, s) {
       _handleErrors("connectWS", e, s);
-      update();
-      if (onFailure != null) {
-        onFailure(e.toString());
-      }
+      onFailure?.call(e.toString());
     }
   }
 
-  Future<void> registerUser() async {
-    try {
-      state = state.copyWith(status: LiveSessionStatus.loading);
-      update();
+  // ---------------------- WEBRTC HANDLERS ----------------------
 
-      final message = LiveMessage(
-        type: StatusType.register,
-        userId: state.user!.id,
+  Future<void> joinMeeting({required VoidCallback onSuccess}) async {
+    try {
+      final meetingId = _selectedMeeting.value?.id;
+      if (meetingId == null) throw "Select a meeting first";
+
+      final joinMsg = LiveMessage(
+        type: LiveMessageType.join,
+        meetingId: meetingId,
+      );
+      await _repository.sendWS(joinMsg);
+
+      final localStream = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': {'facingMode': 'user'},
+      });
+
+      state.localRenderer!.srcObject = localStream;
+
+      // Peer connection
+      final pc = await _createPeerConnection(meetingId);
+      _peerConnections[meetingId] = pc;
+
+      // Add local tracks
+      for (var track in localStream.getTracks()) {
+        pc.addTrack(track, localStream);
+      }
+
+      // Create offer
+      final offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Send offer
+      await _repository.sendWS(
+        LiveMessage(
+          type: LiveMessageType.webrtcOffer,
+          sdp: offer.sdp,
+          sdpType: offer.type,
+          meetingId: meetingId,
+        ),
       );
 
-      final datastate = await _repository.sendWS(message);
-
-      if (datastate is DataFailed) {
-        throw datastate.getMessage("Failed to join meetings!");
-      }
-    } catch (e, s) {
-      _handleErrors("registerUser", e, s);
-      update();
-    }
-  }
-
-  Future<void> joinMeeting() async {
-    try {
-      if (_selectedMeeting.value?.id == null) {
-        throw Exception("Select a meeting first");
-      }
-      state = state.copyWith(status: LiveSessionStatus.loading);
-      update();
-
-      final message = LiveMessage(
-        type: StatusType.join,
-        meetingId: _selectedMeeting.value!.id,
-      );
-
-      final datastateMeeting = await _repository.sendWS(message);
-
-      if (datastateMeeting is DataFailed) {
-        throw datastateMeeting.getMessage("Failed to join meetings!");
-      }
+      onSuccess();
     } catch (e, s) {
       _handleErrors("joinMeeting", e, s);
-      update();
     }
   }
+
+  Future<void> _handleParticipantJoined(LiveMessage msg) async {
+    final remoteUserId = msg.userId!;
+    if (_peerConnections.containsKey(remoteUserId)) return;
+
+    final pc = await _createPeerConnection(remoteUserId);
+    _peerConnections[remoteUserId] = pc;
+
+    final renderer = RTCVideoRenderer();
+    await renderer.initialize();
+    state.remoteRenderers[remoteUserId] = renderer;
+
+    update();
+  }
+
+  Future<void> _handleOffer(LiveMessage msg) async {
+    final pc = await _createPeerConnection(msg.userId!);
+    _peerConnections[msg.userId!] = pc;
+
+    await pc.setRemoteDescription(RTCSessionDescription(msg.sdp, msg.sdpType));
+
+    final answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    await _repository.sendWS(
+      LiveMessage(
+        type: LiveMessageType.webrtcAnswer,
+        sdp: answer.sdp,
+        sdpType: answer.type,
+        targetId: msg.userId,
+        meetingId: msg.meetingId,
+      ),
+    );
+  }
+
+  Future<void> _handleAnswer(LiveMessage msg) async {
+    final pc = _peerConnections[msg.userId];
+    if (pc == null) return;
+    await pc.setRemoteDescription(RTCSessionDescription(msg.sdp, msg.sdpType));
+  }
+
+  Future<void> _handleRemoteCandidate(LiveMessage msg) async {
+    final candidate = msg.candidate;
+    if (candidate == null) return;
+
+    final pc = _peerConnections[msg.userId];
+    if (pc != null) {
+      await pc.addCandidate(candidate);
+    } else {
+      _pendingCandidates.putIfAbsent(msg.userId!, () => []).add(candidate);
+    }
+  }
+
+  Future<RTCPeerConnection> _createPeerConnection(String id) async {
+    final config = {
+      'iceServers': [
+        {'urls': 'stun:stun.l.google.com:19302'},
+      ],
+      'sdpSemantics': 'unified-plan',
+    };
+
+    final pc = await createPeerConnection(config);
+
+    pc.onTrack = (RTCTrackEvent event) {
+      if (event.streams.isNotEmpty) {
+        state.remoteRenderers[id]?.srcObject = event.streams[0];
+      }
+    };
+
+    pc.onIceCandidate = (RTCIceCandidate candidate) {
+      _repository.sendWS(
+        LiveMessage(
+          type: LiveMessageType.webICECandidate,
+          candidate: candidate,
+          targetId: id,
+          meetingId: _selectedMeeting.value?.id,
+        ),
+      );
+    };
+
+    return pc;
+  }
+
+  // ---------------------- CLEANUP ----------------------
 
   void disconnectWS({
     VoidCallback? onSuccess,
-    Function(String error)? onFailure,
+    Function(String)? onFailure,
   }) async {
     try {
       final datastate = await _repository.disconnectWebSocket();
       if (datastate is DataSuccess) {
         _streamSubscription?.cancel();
         _streamSubscription = null;
+
+        for (var pc in _peerConnections.values) {
+          await pc.close();
+        }
+        _peerConnections.clear();
+
         state = state.copyWith(status: LiveSessionStatus.localReady);
         update();
-        if (onSuccess != null) {
-          onSuccess();
-        }
+        onSuccess?.call();
       } else {
         throw datastate.getMessage("Failed to disconnect from ws!");
       }
     } catch (e, s) {
-      if (onFailure != null) {
-        onFailure(e.toString());
-      }
       _handleErrors("disconnectWS", e, s);
+      onFailure?.call(e.toString());
     }
   }
 
@@ -296,5 +384,6 @@ class LiveController extends GetxController {
       status: LiveSessionStatus.failed,
       errorMessage: "$error",
     );
+    update();
   }
 }

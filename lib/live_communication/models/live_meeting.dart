@@ -46,4 +46,26 @@ class LiveMeeting {
     'endedAt': endedAt,
     'participants': participants,
   };
+
+  LiveMeeting copyWith({
+    String? id,
+    String? hostUserId,
+    List<String>? participantIds,
+    String? name,
+    String? type,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    List<String>? participants,
+  }) {
+    return LiveMeeting(
+      id: id ?? this.id,
+      hostUserId: hostUserId ?? this.hostUserId,
+      participantIds: participantIds ?? this.participantIds,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
+      participants: participants ?? this.participants,
+    );
+  }
 }

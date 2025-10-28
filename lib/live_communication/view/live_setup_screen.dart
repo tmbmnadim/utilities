@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:utilities/live_communication/controllers/live_controller.dart';
 import 'package:utilities/live_communication/models/live_meeting.dart';
 import 'package:utilities/live_communication/models/live_user.dart';
+import 'package:utilities/live_communication/view/live_screen.dart';
 import 'package:utilities/utils/buttons.dart';
 
 class LiveSetupScreen extends StatefulWidget {
@@ -18,6 +19,23 @@ class LiveSetupScreen extends StatefulWidget {
 class _LiveSetupScreenState extends State<LiveSetupScreen> {
   final _usernameCtrl = TextEditingController();
   final _conferenceNameCtrl = TextEditingController();
+  final liveCtrl = Get.find<LiveController>();
+
+  @override
+  void initState() {
+    super.initState();
+    if (!liveCtrl.state.isConnectedToWS) {
+      liveCtrl.connectWS(
+        onSuccess: (msg) {
+          EasyLoading.showInfo(msg);
+        },
+      );
+    }
+    if (liveCtrl.state.user != null && !liveCtrl.state.isUserOnline) {
+      liveCtrl.registerUser();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -25,7 +43,6 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10),
         child: GetBuilder<LiveController>(
-          init: LiveController(),
           builder: (controller) {
             final state = controller.state;
             final user = state.user;
@@ -68,7 +85,7 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
                   SizedBox(height: 8),
                 ],
               );
-            } else if (!state.isConnectedToWS || !state.isUserRegistered) {
+            } else if (!state.isConnectedToWS || !state.isUserOnline) {
               return Column(
                 children: [
                   AppButtons.expandedButton(
@@ -81,7 +98,9 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
                           },
                         );
                       }
-                      controller.registerUser();
+                      if (!state.isUserOnline) {
+                        controller.registerUser();
+                      }
                     },
                   ),
                 ],
@@ -155,7 +174,13 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
                     AppButtons.expandedButton(
                       text: "Join",
                       onPressed: () {
-                        controller.joinMeeting();
+                        controller.joinMeeting(
+                          onSuccess: () {
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => Get.to(LiveStreamScreen()),
+                            );
+                          },
+                        );
                       },
                     ),
                     SizedBox(height: 8),

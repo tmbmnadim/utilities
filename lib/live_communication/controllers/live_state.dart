@@ -9,7 +9,7 @@ class LiveState {
   final bool isMuted;
   final bool isCameraOff;
   final bool isConnectedToWS;
-  final bool isUserRegistered;
+  final bool isUserOnline;
   final LiveSessionStatus status;
   final LiveUser? user;
   final List<LiveUser> _availableUsers;
@@ -23,7 +23,7 @@ class LiveState {
     this.isMuted = false,
     this.isCameraOff = false,
     this.isConnectedToWS = false,
-    this.isUserRegistered = false,
+    this.isUserOnline = false,
     this.status = LiveSessionStatus.idle,
     this.user,
     List<LiveUser> availableUsers = const [],
@@ -66,7 +66,7 @@ class LiveState {
       isMuted: isMuted ?? this.isMuted,
       isCameraOff: isCameraOff ?? this.isCameraOff,
       isConnectedToWS: isConnectedToWS ?? this.isConnectedToWS,
-      isUserRegistered: isUserRegistered ?? this.isUserRegistered,
+      isUserOnline: isUserRegistered ?? this.isUserOnline,
       status: status ?? this.status,
       user: user ?? this.user,
       availableUsers: availableUsers ?? this.availableUsers,

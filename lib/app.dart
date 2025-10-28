@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:utilities/google_map/controllers/location_controller.dart';
+import 'package:utilities/live_communication/controllers/live_controller.dart';
 import 'package:utilities/shared/controller/permission_controller.dart';
 import 'package:utilities/theme/ml_theme.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
@@ -14,6 +15,7 @@ class UtilitiesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     Get.put(PermissionController(), permanent: true);
     Get.put(LocationController(), permanent: true);
+    Get.put(LiveController(), permanent: true);
     return GetMaterialApp(
       title: "Utilities App",
       theme: MLTheme.mlKitTheme,

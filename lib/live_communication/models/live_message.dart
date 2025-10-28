@@ -1,31 +1,77 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
+import 'package:flutter_webrtc/flutter_webrtc.dart' show RTCIceCandidate;
+
 class LiveMessage {
-  final StatusType type;
+  final LiveMessageType type;
   final String? userId;
+  final String? targetId;
   final String? meetingId;
   final String? message;
+  final String? sdp;
+  final String? sdpType;
+  final RTCIceCandidate? candidate;
+  final Map<String, List<RTCIceCandidate>>? candidates;
 
-  LiveMessage({required this.type, this.userId, this.meetingId, this.message});
+  LiveMessage({
+    required this.type,
+    this.userId,
+    this.targetId,
+    this.meetingId,
+    this.message,
+    this.sdp,
+    this.sdpType,
+    this.candidate,
+    this.candidates,
+  });
 
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'type': type.toMap(),
-      'data': {
-        if (userId != null) 'userId': userId,
-        if (meetingId != null) 'meetingId': meetingId,
-        if (message != null) 'message': message,
-      },
+    final json = {
+      if (userId != null) 'userId': userId,
+      if (targetId != null) 'targetId': targetId,
+      if (sdp != null) 'sdp': sdp,
+      if (sdpType != null) 'sdpType': sdpType,
+      if (meetingId != null) 'meetingId': meetingId,
+      if (message != null) 'message': message,
     };
+    if (candidate != null) {
+      json.addAll(candidate!.toMap());
+    }
+    return <String, dynamic>{'type': type.toMap(), 'data': json};
   }
 
   factory LiveMessage.fromMap(Map<String, dynamic> map) {
+    RTCIceCandidate rtcIceFrom(dynamic map) {
+      Map<String, dynamic> mappedMap = {};
+      if (map is String) {
+        mappedMap = jsonDecode(map);
+      } else {
+        mappedMap = map;
+      }
+      return RTCIceCandidate(
+        mappedMap['candidate'],
+        mappedMap['sdpMid'],
+        mappedMap['sdpMLineIndex'],
+      );
+    }
+
+    Map<String, dynamic>? iceCandidates;
+    Map<String, List<RTCIceCandidate>>? candidates = {};
+    if (map['type'] == 'ice-sync') {
+      iceCandidates = map['data']['iceCandidates'];
+      for (var item in (iceCandidates ?? {}).entries) {
+        candidates.addAll({item.key: item.value.map(rtcIceFrom)});
+      }
+    }
     return LiveMessage(
-      type: StatusType.fromMap(map['type']),
+      type: LiveMessageType.fromMap(map['type']),
       userId: map['data']['userId'],
+      targetId: map['data']['targetId'],
       meetingId: map['data']['meetingId'],
       message: map['data']['message'],
+      candidate: rtcIceFrom(map['data']),
+      candidates: candidates,
     );
   }
 
@@ -35,50 +81,80 @@ class LiveMessage {
       LiveMessage.fromMap(jsonDecode(source) as Map<String, dynamic>);
 }
 
-enum StatusType {
+enum LiveMessageType {
   register,
   registered,
   join,
   participantJoined,
+  participants,
+  webICECandidate,
+  webrtcOffer,
+  webrtcAnswer,
+  iceSync,
+  meetingState,
   leave,
   participantLeft,
   error;
 
   String toMap() {
     switch (this) {
-      case StatusType.register:
+      case LiveMessageType.register:
         return 'register';
-      case StatusType.registered:
+      case LiveMessageType.registered:
         return 'registered';
-      case StatusType.join:
+      case LiveMessageType.join:
         return 'join';
-      case StatusType.participantJoined:
+      case LiveMessageType.participantJoined:
         return 'participant-joined';
-      case StatusType.leave:
+      case LiveMessageType.participants:
+        return 'participants';
+      case LiveMessageType.leave:
         return 'leave';
-      case StatusType.participantLeft:
+      case LiveMessageType.participantLeft:
         return 'participant-left';
-      case StatusType.error:
+      case LiveMessageType.iceSync:
+        return 'ice-sync';
+      case LiveMessageType.error:
         return 'error';
+      case LiveMessageType.webICECandidate:
+        return 'webrtc-ice-candidate';
+      case LiveMessageType.meetingState:
+        return 'meeting-state';
+      case LiveMessageType.webrtcOffer:
+        return 'webrtc-offer';
+      case LiveMessageType.webrtcAnswer:
+        return 'webrtc-answer';
     }
   }
 
-  factory StatusType.fromMap(String map) {
+  factory LiveMessageType.fromMap(String map) {
     switch (map) {
       case 'register':
-        return StatusType.register;
+        return LiveMessageType.register;
       case 'registered':
-        return StatusType.registered;
+        return LiveMessageType.registered;
       case 'join':
-        return StatusType.join;
+        return LiveMessageType.join;
       case 'participant-joined':
-        return StatusType.participantJoined;
+        return LiveMessageType.participantJoined;
+      case 'participants':
+        return LiveMessageType.participants;
       case 'leave':
-        return StatusType.leave;
+        return LiveMessageType.leave;
       case 'participant-left':
-        return StatusType.participantLeft;
+        return LiveMessageType.participantLeft;
       case 'error':
-        return StatusType.error;
+        return LiveMessageType.error;
+      case 'webrtc-ice-candidate':
+        return LiveMessageType.webICECandidate;
+      case 'meeting-state':
+        return LiveMessageType.meetingState;
+      case 'ice-sync':
+        return LiveMessageType.iceSync;
+      case 'webrtc-offer':
+        return LiveMessageType.webrtcOffer;
+      case 'webrtc-answer':
+        return LiveMessageType.webrtcAnswer;
       default:
         throw Exception("Unsupported Status type: $map");
     }
