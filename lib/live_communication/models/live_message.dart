@@ -7,6 +7,7 @@ class LiveMessage {
   final LiveMessageType type;
   final String? userId;
   final String? targetId;
+  final String? fromId;
   final String? meetingId;
   final String? message;
   final String? sdp;
@@ -18,6 +19,7 @@ class LiveMessage {
     required this.type,
     this.userId,
     this.targetId,
+    this.fromId,
     this.meetingId,
     this.message,
     this.sdp,
@@ -30,48 +32,37 @@ class LiveMessage {
     final json = {
       if (userId != null) 'userId': userId,
       if (targetId != null) 'targetId': targetId,
+      if (targetId != null) 'targetUserId': targetId,
+      if (fromId != null) 'fromId': fromId,
       if (sdp != null) 'sdp': sdp,
       if (sdpType != null) 'sdpType': sdpType,
       if (meetingId != null) 'meetingId': meetingId,
       if (message != null) 'message': message,
+      if (candidate != null) 'candidate': candidate!.toMap(),
     };
-    if (candidate != null) {
-      json.addAll(candidate!.toMap());
-    }
     return <String, dynamic>{'type': type.toMap(), 'data': json};
   }
 
   factory LiveMessage.fromMap(Map<String, dynamic> map) {
-    RTCIceCandidate rtcIceFrom(dynamic map) {
-      Map<String, dynamic> mappedMap = {};
-      if (map is String) {
-        mappedMap = jsonDecode(map);
-      } else {
-        mappedMap = map;
-      }
+    RTCIceCandidate? rtcIceFrom(dynamic map) {
+      if(map == null) return null;
       return RTCIceCandidate(
-        mappedMap['candidate'],
-        mappedMap['sdpMid'],
-        mappedMap['sdpMLineIndex'],
+        map['candidate'],
+        map['sdpMid'],
+        map['sdpMLineIndex'],
       );
     }
-
-    Map<String, dynamic>? iceCandidates;
-    Map<String, List<RTCIceCandidate>>? candidates = {};
-    if (map['type'] == 'ice-sync') {
-      iceCandidates = map['data']['iceCandidates'];
-      for (var item in (iceCandidates ?? {}).entries) {
-        candidates.addAll({item.key: item.value.map(rtcIceFrom)});
-      }
-    }
+    
     return LiveMessage(
       type: LiveMessageType.fromMap(map['type']),
       userId: map['data']['userId'],
       targetId: map['data']['targetId'],
+      fromId: map['data']['fromId'],
       meetingId: map['data']['meetingId'],
       message: map['data']['message'],
-      candidate: rtcIceFrom(map['data']),
-      candidates: candidates,
+      sdp: map['data']['sdp'],
+      sdpType: map['data']['sdpType'],
+      candidate: rtcIceFrom(map['data']['candidate']),
     );
   }
 

@@ -110,6 +110,7 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
             // ========================== CALL, CONFERENCE AND STREAM SETUP
             return Column(
               children: [
+                Text("THIS USER: ${state.user?.id}"),
                 SizedBox(height: 8),
                 // ================================================= P2P CALL
                 ExpansionTile(
@@ -138,7 +139,12 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
                       ],
                     ),
                     SizedBox(height: 8),
-                    AppButtons.expandedButton(text: "Call", onPressed: () {}),
+                    AppButtons.expandedButton(
+                      text: "Call",
+                      onPressed: () {
+                        controller.callUser(onSuccess: () {});
+                      },
+                    ),
                     SizedBox(height: 8),
                   ],
                 ),

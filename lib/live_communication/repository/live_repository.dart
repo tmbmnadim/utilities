@@ -73,7 +73,7 @@ class LiveRepository {
   Future<DataState> sendWS(LiveMessage message) async {
     return RepositoryErrorHandler.call<void>(
       network: () async {
-        log(message.toJson());
+        log("LiveRepository<sendWS>: ${message.toJson()}");
         _channel.sink.add(message.toJson());
       },
       proxyMessage: "Failed to send socket message!",
