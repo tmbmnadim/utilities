@@ -11,12 +11,28 @@ class LiveStreamScreen extends StatefulWidget {
 }
 
 class _LiveStreamScreenState extends State<LiveStreamScreen> {
+  final liveCtrl = Get.find<LiveController>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      liveCtrl.callUser(onSuccess: () {});
+    });
+  }
+
+  @override
+  void dispose() {
+    liveCtrl.disconnectMeeting();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Stream')),
       body: GetBuilder<LiveController>(
-        builder: (liveCtrl) {
+        builder: (a) {
           final remoteRenderers = liveCtrl.state.remoteRenderers;
           return Column(
             children: [

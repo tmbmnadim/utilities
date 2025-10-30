@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:utilities/live_communication/controllers/live_controller.dart';
 import 'package:utilities/live_communication/models/live_meeting.dart';
 import 'package:utilities/live_communication/models/live_user.dart';
@@ -24,6 +25,7 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
   @override
   void initState() {
     super.initState();
+    _permissions();
     if (!liveCtrl.state.isConnectedToWS) {
       liveCtrl.connectWS(
         onSuccess: (msg) {
@@ -34,6 +36,11 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
     if (liveCtrl.state.user != null && !liveCtrl.state.isUserOnline) {
       liveCtrl.registerUser();
     }
+  }
+
+  void _permissions() async {
+    await Permission.camera.request();
+    await Permission.microphone.request();
   }
 
   @override
@@ -141,8 +148,8 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
                     SizedBox(height: 8),
                     AppButtons.expandedButton(
                       text: "Call",
-                      onPressed: () {
-                        controller.callUser(onSuccess: () {});
+                      onPressed: () async {
+                        Get.to(LiveStreamScreen());
                       },
                     ),
                     SizedBox(height: 8),

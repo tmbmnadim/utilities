@@ -2,9 +2,9 @@
 part of 'live_controller.dart';
 
 class LiveState {
-  final RTCVideoRenderer? localRenderer;
-  final Map<String, RTCVideoRenderer> remoteRenderers = {};
-  final Map<String, RTCPeerConnection> peerConnections = {};
+  RTCVideoRenderer? localRenderer;
+  final Map<String, RTCVideoRenderer> remoteRenderers;
+  final Map<String, RTCPeerConnection> peerConnections;
   final bool isStreaming;
   final bool isMuted;
   final bool isCameraOff;
@@ -19,6 +19,8 @@ class LiveState {
 
   LiveState({
     this.localRenderer,
+    this.remoteRenderers = const {},
+    this.peerConnections = const {},
     this.isStreaming = false,
     this.isMuted = false,
     this.isCameraOff = false,
@@ -48,11 +50,13 @@ class LiveState {
 
   LiveState copyWith({
     RTCVideoRenderer? localRenderer,
+    Map<String, RTCVideoRenderer>? remoteRenderers,
+    Map<String, RTCPeerConnection>? peerConnections,
     bool? isStreaming,
     bool? isMuted,
     bool? isCameraOff,
     bool? isConnectedToWS,
-    bool? isUserRegistered,
+    bool? isUserOnline,
     LiveSessionStatus? status,
     LiveUser? user,
     List<LiveUser>? availableUsers,
@@ -62,11 +66,13 @@ class LiveState {
   }) {
     return LiveState(
       localRenderer: localRenderer ?? this.localRenderer,
+      remoteRenderers: remoteRenderers ?? this.remoteRenderers,
+      peerConnections: peerConnections ?? this.peerConnections,
       isStreaming: isStreaming ?? this.isStreaming,
       isMuted: isMuted ?? this.isMuted,
       isCameraOff: isCameraOff ?? this.isCameraOff,
       isConnectedToWS: isConnectedToWS ?? this.isConnectedToWS,
-      isUserOnline: isUserRegistered ?? this.isUserOnline,
+      isUserOnline: isUserOnline ?? this.isUserOnline,
       status: status ?? this.status,
       user: user ?? this.user,
       availableUsers: availableUsers ?? this.availableUsers,

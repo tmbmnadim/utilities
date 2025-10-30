@@ -70,6 +70,11 @@ class LiveMessage {
 
   factory LiveMessage.fromJson(String source) =>
       LiveMessage.fromMap(jsonDecode(source) as Map<String, dynamic>);
+
+  @override
+  String toString() {
+    return 'LiveMessage(type: $type, userId: $userId, targetId: $targetId, fromId: $fromId, meetingId: $meetingId, message: $message, sdp: ${sdp?.substring(0,10)}, sdpType: $sdpType, candidate: $candidate, candidates: $candidates)';
+  }
 }
 
 enum LiveMessageType {

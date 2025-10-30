@@ -27,7 +27,6 @@ class LiveController extends GetxController {
   LiveMeeting? get selectedMeeting => _selectedMeeting.value;
   set selectedMeeting(LiveMeeting? meeting) => _selectedMeeting.value = meeting;
 
-  final Map<String, RTCPeerConnection> _peerConnections = {};
   final Map<String, List<RTCIceCandidate>> _pendingCandidates = {};
 
   // ---------------------- USER REGISTRATION ----------------------
@@ -164,15 +163,13 @@ class LiveController extends GetxController {
       if (stream == null) throw "WebSocket stream is empty";
 
       _streamSubscription = stream.listen((event) async {
-        log(
-          "LiveController<WS Message>: ${jsonDecode(event)['type']}\nData:${jsonDecode(event)['data'].keys.toList()}",
-        );
         final message = LiveMessage.fromJson(event);
+        log("RECEIVED MESSAGE: $message");
 
         switch (message.type) {
           case LiveMessageType.registered:
             state = state.copyWith(
-              isUserRegistered: true,
+              isUserOnline: true,
               status: LiveSessionStatus.registered,
             );
             update();
@@ -183,7 +180,6 @@ class LiveController extends GetxController {
             break;
 
           case LiveMessageType.webrtcOffer:
-            log("RECEIVED WEB RTC OFFER");
             await _handleOffer(message);
             break;
 
@@ -243,37 +239,37 @@ class LiveController extends GetxController {
     }
   }
 
+  // Planning to use it for initiating connection whenever a user
+  // joins a meeting.
+  String? _joinedParticipantId;
+
   Future<void> callUser({
     VoidCallback? onSuccess,
     Function(String error)? onFailure,
   }) async {
     try {
-      final targetId = _selectedUser.value?.id;
-      if (targetId == null) throw Exception("Please Select a user");
+      final remoteUser = _selectedUser.value?.id;
+      if (remoteUser == null) throw Exception("Please Select a user");
 
+      // Initializing Local Renderer
+      final renderer = RTCVideoRenderer();
+      await renderer.initialize();
+
+      // Getting Device Media Tracks
       final localStream = await navigator.mediaDevices.getUserMedia({
         'audio': true,
         'video': {'facingMode': 'user'},
       });
 
-      final renderer = RTCVideoRenderer();
-      await renderer.initialize();
-
+      // Assiging media stream to local renderer
       renderer.srcObject = localStream;
 
-      state = state.copyWith(localRenderer: renderer);
+      // Peer connection:
+      // Creating peer connection for Local User <--> Remote User
+      RTCPeerConnection pc = await _createPeerConnection(remoteUser);
+      state.peerConnections[remoteUser] = pc;
 
-      // Peer connection
-      RTCPeerConnection pc;
-      if (!_peerConnections.containsKey(targetId) ||
-          _peerConnections[targetId] == null) {
-        pc = await _createPeerConnection(targetId);
-        _peerConnections[targetId] = pc;
-      } else {
-        pc = _peerConnections[targetId]!;
-      }
-
-      // Add local tracks
+      // Adding Local Tracks (Audio + Video)
       for (var track in localStream.getTracks()) {
         pc.addTrack(track, localStream);
       }
@@ -287,11 +283,15 @@ class LiveController extends GetxController {
         LiveMessage(
           type: LiveMessageType.webrtcOffer,
           fromId: state.user!.id,
-          targetId: targetId,
+          targetId: remoteUser,
           sdp: offer.sdp,
           sdpType: offer.type,
         ),
       );
+
+      // Storing Renderer for later use
+      state.localRenderer = renderer;
+      update();
       onSuccess?.call();
     } catch (e, s) {
       _handleErrors("callUser", e, s);
@@ -302,11 +302,11 @@ class LiveController extends GetxController {
   Future<void> _handleParticipantJoined(LiveMessage msg) async {
     final remoteUserId = msg.userId!;
     if (remoteUserId == state.user!.id) return;
-    if (_peerConnections.containsKey(remoteUserId)) return;
+    if (state.peerConnections.containsKey(remoteUserId)) return;
 
     // Peer connection
     final pc = await _createPeerConnection(remoteUserId);
-    _peerConnections[remoteUserId] = pc;
+    state.peerConnections[remoteUserId] = pc;
 
     // Add local tracks
     for (var track in state.localRenderer!.srcObject!.getTracks()) {
@@ -323,109 +323,153 @@ class LiveController extends GetxController {
         type: LiveMessageType.webrtcOffer,
         sdp: offer.sdp,
         sdpType: offer.type,
+        fromId: state.user!.id,
         meetingId: state.currentMeeting!.id,
       ),
     );
-    _peerConnections[remoteUserId] = pc;
+    state.peerConnections[remoteUserId] = pc;
     _joinedParticipantId = remoteUserId;
 
     update();
   }
 
-  String? _joinedParticipantId;
-
   Future<void> _handleOffer(LiveMessage msg) async {
+    String remoteUserId = msg.fromId!;
+    log("RECEIVED WEB RTC OFFER: $msg");
+    // And Offer must have sdp, sdpType and the id of
+    // remote user.
+    if (msg.sdp == null ||
+        msg.sdpType == null ||
+        remoteUserId == state.user!.id) {
+      throw Exception("Invalid data!");
+    }
+
+    log("_handle Offer: DATA IS OK");
+
+    // Checking if our peer connection for remote user is
+    // available: (Previously Created). If it was not created
+    // maybe something went wrong. We recreate one for our
+    // remote user.
+    RTCPeerConnection? pc;
+    if (state.peerConnections[remoteUserId] == null) {
+      pc = await _createPeerConnection(remoteUserId);
+      state.peerConnections[remoteUserId] = pc;
+      log("_handleOffer: Added new peer connection");
+    }
+    pc = state.peerConnections[remoteUserId]!;
+    log("_handleOffer: $state.peerConnections");
+
+    // Setting remote description for remote user.
+    await pc.setRemoteDescription(RTCSessionDescription(msg.sdp, msg.sdpType));
+
+    // creating an answer to send against the offer
+    // that the remote sent.
+    final answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    _processPendingCandidates(remoteUserId);
+
+    // Sending our answer through our WS
+    _repository.sendWS(
+      LiveMessage(
+        type: LiveMessageType.webrtcAnswer,
+        sdp: answer.sdp,
+        fromId: state.user!.id,
+        sdpType: answer.type,
+        targetId: remoteUserId,
+        meetingId: _selectedMeeting.value?.id,
+      ),
+    );
+    update();
+  }
+
+  Future<void> _handleAnswer(LiveMessage msg) async {
     String? remoteUserId = msg.fromId;
     if (msg.sdp == null ||
         msg.sdpType == null ||
         remoteUserId == null ||
         remoteUserId == state.user!.id) {
-      return;
+      throw Exception("Invalid data!");
     }
 
-    RTCVideoRenderer renderer;
-    if (state.remoteRenderers[remoteUserId] == null) {
-      renderer = RTCVideoRenderer();
-      await renderer.initialize();
-      state.remoteRenderers[remoteUserId] = renderer;
-      update();
-    } else {
-      renderer = state.remoteRenderers[remoteUserId]!;
+    // retrieving remote users peer connection
+    RTCPeerConnection? pc = state.peerConnections[remoteUserId];
+
+    if (pc == null) {
+      throw Exception("Peer details for this user was not found!");
     }
 
-    RTCPeerConnection pc;
-    if (_peerConnections[remoteUserId] == null) {
-      pc = await _createPeerConnection(remoteUserId);
-      _peerConnections[remoteUserId] = pc;
-    } else {
-      pc = _peerConnections[remoteUserId]!;
-    }
-
+    // Setting peer details for remote user.
     await pc.setRemoteDescription(RTCSessionDescription(msg.sdp, msg.sdpType));
-
-    final answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-
-    await _repository.sendWS(
-      LiveMessage(
-        type: LiveMessageType.webrtcAnswer,
-        sdp: answer.sdp,
-        sdpType: answer.type,
-        targetId: remoteUserId,
-        meetingId: msg.meetingId,
-      ),
-    );
-  }
-
-  Future<void> _handleAnswer(LiveMessage msg) async {
-    final remoteUserId = msg.fromId;
-    if (msg.sdp == null ||
-        msg.sdpType == null ||
-        remoteUserId == null ||
-        remoteUserId == state.user!.id) {
-      return;
-    }
-
-    RTCPeerConnection? pc = _peerConnections[remoteUserId];
-    pc ??= await _createPeerConnection(remoteUserId);
-    await pc.setRemoteDescription(RTCSessionDescription(msg.sdp, msg.sdpType));
+    _processPendingCandidates(remoteUserId);
   }
 
   Future<void> _handleRemoteCandidate(LiveMessage msg) async {
+    String? remoteUserId = msg.fromId;
     log("_handleRemoteCandidate: Received Remote Candidate");
     final candidate = msg.candidate;
-    if (candidate == null) return;
+    if (candidate == null || remoteUserId == null) {
+      throw Exception("Candidate is empty or invalid");
+    }
     log("_handleRemoteCandidate: Remote Candidate is Ok");
 
-    RTCPeerConnection? pc = _peerConnections[msg.userId];
-    pc ??= await _createPeerConnection(msg.fromId!);
+    if (!state.peerConnections.containsKey(remoteUserId) ||
+        state.peerConnections[remoteUserId] == null) {
+      if (!state.peerConnections.containsKey(remoteUserId) ||
+          state.peerConnections[remoteUserId] == null) {
+        log(
+          "_handleRemoteCandidate: Peer connection not found, queueing candidate",
+        );
+        _pendingCandidates.putIfAbsent(remoteUserId, () => []).add(candidate);
+        return;
+      }
+      throw Exception("Peer details for this user was not found!");
+    }
+
+    RTCPeerConnection pc = state.peerConnections[remoteUserId]!;
 
     await pc.addCandidate(candidate);
 
     log("_handleRemoteCandidate: Remote candidate is added to peerConnection");
 
     log("_handleRemoteCandidate: Redirecting to StreamScreen");
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => Get.to(LiveStreamScreen()),
-    );
   }
 
   Future<RTCPeerConnection> _createPeerConnection(String id) async {
+    // Server details for web rtc connection
     final config = {
       'iceServers': [
         {'urls': 'stun:stun.l.google.com:19302'},
+        {
+          "urls": "turn:openrelay.metered.ca:80",
+          "username": "openrelayproject",
+          "credential": "openrelayproject",
+        },
       ],
       'sdpSemantics': 'unified-plan',
     };
 
+    // generate a new peer connection
     final pc = await createPeerConnection(config);
 
+    // Retriving remote renderer for user
+    RTCVideoRenderer renderer = RTCVideoRenderer();
+    renderer.initialize();
+    state.remoteRenderers[id] = renderer;
+
+    // When ever a new track is added by someone on this
+    // peer we take the event and add the stream to remote
+    // users renderer
     pc.onTrack = (RTCTrackEvent event) {
       if (event.streams.isNotEmpty) {
-        state.remoteRenderers[id]?.srcObject = event.streams[0];
+        log("_createPeerConnection: GOT TRACKS");
+        renderer.srcObject = event.streams[0];
+        update();
       }
     };
 
+    // Our Ice Candidate was retrieved.
+    // we send it to remote user for them to
+    // use it to make the connection
     pc.onIceCandidate = (RTCIceCandidate candidate) {
       _repository.sendWS(
         LiveMessage(
@@ -439,17 +483,51 @@ class LiveController extends GetxController {
       log("_createPeerConnection: Candidate is sent");
     };
 
-    if (_pendingCandidates.containsKey(id)) {
-      for (var candidate in _pendingCandidates[id]!) {
-        await pc.addCandidate(candidate);
-      }
-      _pendingCandidates.remove(id);
-    }
-
     return pc;
   }
 
+  Future<void> _processPendingCandidates(String remoteUserId) async {
+    if (_pendingCandidates.containsKey(remoteUserId)) {
+      final candidates = _pendingCandidates[remoteUserId]!;
+      final pc = state.peerConnections[remoteUserId];
+
+      if (pc != null) {
+        for (var candidate in candidates) {
+          await pc.addCandidate(candidate);
+          log("Added pending candidate");
+        }
+        _pendingCandidates.remove(remoteUserId);
+      }
+    }
+  }
+
   // ---------------------- CLEANUP ----------------------
+
+  Future<void> disconnectMeeting() async {
+    try {
+      _repository.sendWS(
+        LiveMessage(type: LiveMessageType.leave, fromId: state.user!.id),
+      );
+      for (var pc in state.peerConnections.values) {
+        await pc.close();
+      }
+      state.peerConnections.clear();
+
+      for (var renderer in state.remoteRenderers.values) {
+        await renderer.dispose();
+      }
+      state.remoteRenderers.clear();
+      state.localRenderer?.dispose();
+
+      state = state.copyWith(
+        currentMeeting: null,
+        status: LiveSessionStatus.idle,
+      );
+      update();
+    } catch (e, s) {
+      _handleErrors("disconnectMeeting", e, s);
+    }
+  }
 
   void disconnectWS({
     VoidCallback? onSuccess,
@@ -461,10 +539,10 @@ class LiveController extends GetxController {
         _streamSubscription?.cancel();
         _streamSubscription = null;
 
-        for (var pc in _peerConnections.values) {
+        for (var pc in state.peerConnections.values) {
           await pc.close();
         }
-        _peerConnections.clear();
+        state.peerConnections.clear();
 
         state = state.copyWith(status: LiveSessionStatus.localReady);
         update();
@@ -475,28 +553,6 @@ class LiveController extends GetxController {
     } catch (e, s) {
       _handleErrors("disconnectWS", e, s);
       onFailure?.call(e.toString());
-    }
-  }
-
-  Future<void> disconnectMeeting() async {
-    try {
-      for (var pc in _peerConnections.values) {
-        await pc.close();
-      }
-      _peerConnections.clear();
-
-      for (var renderer in state.remoteRenderers.values) {
-        await renderer.dispose();
-      }
-      state.remoteRenderers.clear();
-
-      state = state.copyWith(
-        currentMeeting: null,
-        status: LiveSessionStatus.localReady,
-      );
-      update();
-    } catch (e, s) {
-      _handleErrors("disconnectMeeting", e, s);
     }
   }
 
