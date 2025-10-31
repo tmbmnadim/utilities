@@ -107,8 +107,14 @@ class LiveSource {
   }
 
   Future<WebSocketChannel> connectToWebsocket() async {
-    Uri? uri = Uri.tryParse("$_wsUrl");
-    if (uri == null) throw Exception("Invalid or Empty API");
-    return WebSocketChannel.connect(uri);
+    try {
+      Uri? uri = Uri.tryParse("$_wsUrl");
+      if (uri == null) throw Exception("Invalid or Empty API");
+
+      return WebSocketChannel.connect(uri);
+    } catch (e, s) {
+      log("LiveSource<connectToWebsocket>: $e\n$s");
+      rethrow;
+    }
   }
 }

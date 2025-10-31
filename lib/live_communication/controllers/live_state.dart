@@ -3,24 +3,26 @@ part of 'live_controller.dart';
 
 class LiveState {
   RTCVideoRenderer? localRenderer;
-  final Map<String, RTCVideoRenderer> remoteRenderers;
-  final Map<String, RTCPeerConnection> peerConnections;
-  final bool isStreaming;
-  final bool isMuted;
-  final bool isCameraOff;
-  final bool isConnectedToWS;
-  final bool isUserOnline;
-  final LiveSessionStatus status;
-  final LiveUser? user;
-  final List<LiveUser> _availableUsers;
-  final LiveMeeting? currentMeeting;
-  final List<LiveMeeting> availableMeetings;
-  final String errorMessage;
+  MediaStream? localStream;
+  Map<String, RTCVideoRenderer> remoteRenderers;
+  Map<String, RTCPeerConnection> peerConnections;
+  bool isStreaming;
+  bool isMuted;
+  bool isCameraOff;
+  bool isConnectedToWS;
+  bool isUserOnline;
+  LiveSessionStatus status;
+  LiveUser? user;
+  List<LiveUser> _availableUsers;
+  LiveMeeting? currentMeeting;
+  List<LiveMeeting> availableMeetings;
+  String errorMessage;
 
   LiveState({
     this.localRenderer,
-    this.remoteRenderers = const {},
-    this.peerConnections = const {},
+    this.localStream,
+    Map<String, RTCVideoRenderer>? remoteRenderers,
+    Map<String, RTCPeerConnection>? peerConnections,
     this.isStreaming = false,
     this.isMuted = false,
     this.isCameraOff = false,
@@ -32,7 +34,9 @@ class LiveState {
     this.availableMeetings = const [],
     this.currentMeeting,
     this.errorMessage = "",
-  }) : _availableUsers = availableUsers;
+  }) : _availableUsers = availableUsers,
+       remoteRenderers = remoteRenderers ?? {},
+       peerConnections = peerConnections ?? {};
 
   List<LiveUser> get availableUsers {
     List<LiveUser> listWithoutCurrent = [];
@@ -42,45 +46,39 @@ class LiveState {
     return listWithoutCurrent;
   }
 
-  final Map<String, dynamic> iceServers = {
-    'iceServers': [
-      {'urls': 'stun:stun.l.google.com:19302'},
-    ],
-  };
-
-  LiveState copyWith({
-    RTCVideoRenderer? localRenderer,
-    Map<String, RTCVideoRenderer>? remoteRenderers,
-    Map<String, RTCPeerConnection>? peerConnections,
-    bool? isStreaming,
-    bool? isMuted,
-    bool? isCameraOff,
-    bool? isConnectedToWS,
-    bool? isUserOnline,
-    LiveSessionStatus? status,
-    LiveUser? user,
-    List<LiveUser>? availableUsers,
-    LiveMeeting? currentMeeting,
-    List<LiveMeeting>? availableMeetings,
-    String? errorMessage,
-  }) {
-    return LiveState(
-      localRenderer: localRenderer ?? this.localRenderer,
-      remoteRenderers: remoteRenderers ?? this.remoteRenderers,
-      peerConnections: peerConnections ?? this.peerConnections,
-      isStreaming: isStreaming ?? this.isStreaming,
-      isMuted: isMuted ?? this.isMuted,
-      isCameraOff: isCameraOff ?? this.isCameraOff,
-      isConnectedToWS: isConnectedToWS ?? this.isConnectedToWS,
-      isUserOnline: isUserOnline ?? this.isUserOnline,
-      status: status ?? this.status,
-      user: user ?? this.user,
-      availableUsers: availableUsers ?? this.availableUsers,
-      currentMeeting: currentMeeting ?? this.currentMeeting,
-      availableMeetings: availableMeetings ?? this.availableMeetings,
-      errorMessage: errorMessage ?? this.errorMessage,
-    );
-  }
+  // LiveState copyWith({
+  //   RTCVideoRenderer? localRenderer,
+  //   Map<String, RTCVideoRenderer>? remoteRenderers,
+  //   Map<String, RTCPeerConnection>? peerConnections,
+  //   bool? isStreaming,
+  //   bool? isMuted,
+  //   bool? isCameraOff,
+  //   bool? isConnectedToWS,
+  //   bool? isUserOnline,
+  //   LiveSessionStatus? status,
+  //   LiveUser? user,
+  //   List<LiveUser>? availableUsers,
+  //   LiveMeeting? currentMeeting,
+  //   List<LiveMeeting>? availableMeetings,
+  //   String? errorMessage,
+  // }) {
+  //   return LiveState(
+  //     localRenderer: localRenderer ?? this.localRenderer,
+  //     remoteRenderers: remoteRenderers ?? this.remoteRenderers,
+  //     peerConnections: peerConnections ?? this.peerConnections,
+  //     isStreaming: isStreaming ?? this.isStreaming,
+  //     isMuted: isMuted ?? this.isMuted,
+  //     isCameraOff: isCameraOff ?? this.isCameraOff,
+  //     isConnectedToWS: isConnectedToWS ?? this.isConnectedToWS,
+  //     isUserOnline: isUserOnline ?? this.isUserOnline,
+  //     status: status ?? this.status,
+  //     user: user ?? this.user,
+  //     availableUsers: availableUsers ?? this.availableUsers,
+  //     currentMeeting: currentMeeting ?? this.currentMeeting,
+  //     availableMeetings: availableMeetings ?? this.availableMeetings,
+  //     errorMessage: errorMessage ?? this.errorMessage,
+  //   );
+  // }
 }
 
 enum LiveSessionStatus {

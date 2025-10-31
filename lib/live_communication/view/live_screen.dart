@@ -4,7 +4,8 @@ import 'package:get/get.dart';
 import 'package:utilities/live_communication/controllers/live_controller.dart';
 
 class LiveStreamScreen extends StatefulWidget {
-  const LiveStreamScreen({super.key});
+  final bool isNewCall;
+  const LiveStreamScreen({super.key, this.isNewCall = true});
 
   @override
   State<LiveStreamScreen> createState() => _LiveStreamScreenState();
@@ -16,9 +17,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      liveCtrl.callUser(onSuccess: () {});
-    });
+    if (widget.isNewCall) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        liveCtrl.callUser(onSuccess: () {});
+      });
+    }
   }
 
   @override
@@ -36,8 +39,28 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
           final remoteRenderers = liveCtrl.state.remoteRenderers;
           return Column(
             children: [
-              Text("THIS USER: ${liveCtrl.state.user!.id}"),
+              if (liveCtrl.state.localRenderer != null)
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text("You"),
+                      Expanded(
+                        child: Container(
+                          color: Colors.black45,
+                          child: RTCVideoView(
+                            liveCtrl.state.localRenderer!,
+                            mirror: true,
+                            objectFit: RTCVideoViewObjectFit
+                                .RTCVideoViewObjectFitCover,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
+                flex: 3,
                 child: GridView.builder(
                   itemCount: remoteRenderers.length,
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
