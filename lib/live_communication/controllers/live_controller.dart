@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
+import 'dart:nativewrappers/_internal/vm/lib/ffi_allocation_patch.dart';
 import 'dart:ui';
 import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:get/get.dart' hide navigator;
@@ -27,8 +27,6 @@ class LiveController extends GetxController {
   LiveMeeting? get selectedMeeting => _selectedMeeting.value;
   set selectedMeeting(LiveMeeting? meeting) => _selectedMeeting.value = meeting;
 
-  final Map<String, List<RTCIceCandidate>> _pendingCandidates = {};
-
   // ---------------------- USER REGISTRATION ----------------------
 
   Future<void> createUser(
@@ -44,8 +42,10 @@ class LiveController extends GetxController {
 
       if (datastate is DataSuccess) {
         state.status = LiveSessionStatus.success;
+        state.message = "Successfuly created account!";
         state.user = datastate.getData()!;
         update();
+        state.status = LiveSessionStatus.offline;
         await registerUser();
         onSuccess?.call();
       } else {
@@ -59,9 +59,8 @@ class LiveController extends GetxController {
 
   Future<void> registerUser() async {
     try {
-      final message = LiveMessage(
-        type: LiveMessageType.register,
-        userId: state.user!.id,
+      final message = LiveMessage.register(
+        LiveMessageData.register(from: state.user!.id),
       );
       await _repository.sendWS(message);
     } catch (e, s) {
@@ -105,10 +104,15 @@ class LiveController extends GetxController {
     Function(String error)? onFailure,
   }) async {
     try {
+      state.status = LiveSessionStatus.loading;
+      update();
+
       final datastate = await _repository.createMeeting(name, state.user!.id);
       if (datastate is DataSuccess) {
         state.currentMeeting = datastate.getData();
         state.status = LiveSessionStatus.success;
+        update();
+
         onSuccess?.call();
       } else {
         throw datastate.getMessage("Failed to create meeting!");
@@ -142,6 +146,74 @@ class LiveController extends GetxController {
     }
   }
 
+  Future<void> joinMeeting({required VoidCallback onSuccess}) async {
+    try {
+      final meetingId = _selectedMeeting.value?.id;
+      if (meetingId == null) throw "Select a meeting first";
+
+      final joinMsg = LiveMessage.meetingJoinRequest(
+        LiveMessageData.meetingJoinRequest(
+          from: state.user!.id,
+          meetingId: meetingId,
+        ),
+      );
+      await _repository.sendWS(joinMsg);
+
+      await _createLocalRenderer();
+
+      state.currentMeeting = _selectedMeeting.value;
+      state.status = LiveSessionStatus.calling;
+      update();
+      onSuccess();
+    } catch (e, s) {
+      _handleErrors("joinMeeting", e, s);
+    }
+  }
+
+  Future<void> callUser({
+    VoidCallback? onSuccess,
+    Function(String error)? onFailure,
+  }) async {
+    try {
+      state.status = LiveSessionStatus.calling;
+      update();
+      final to = _selectedUser.value?.id;
+      if (to == null) throw Exception("Please Select a user");
+
+      await _createLocalRenderer();
+
+      // Peer connection:
+      // Creating peer connection for Local User <--> Remote User
+      await _createPeerConnection(to);
+      RTCPeerConnection pc = state.peerConnections[to]!;
+
+      // Adding Local Tracks (Audio + Video)
+      for (var track in state.localStream!.getTracks()) {
+        await pc.addTrack(track, state.localStream!);
+      }
+
+      // Create offer
+      final offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Send offer
+      await _repository.sendWS(
+        LiveMessage.sendOffers(
+          LiveMessageData.offer(
+            from: state.user!.id,
+            to: to,
+            sdpDetails: SDPDetails(sdp: offer.sdp!, sdpType: offer.type!),
+          ),
+        ),
+      );
+      update();
+      onSuccess?.call();
+    } catch (e, s) {
+      _handleErrors("callUser", e, s);
+      onFailure?.call(e.toString());
+    }
+  }
+
   // ---------------------- SOCKET CONNECTION ----------------------
 
   void connectWS({
@@ -155,36 +227,51 @@ class LiveController extends GetxController {
       final stream = datastate.getData();
       if (stream == null) throw "WebSocket stream is empty";
 
-      _streamSubscription = stream.listen((event) async {
-        final message = LiveMessage.fromJson(event);
+      _streamSubscription = stream.listen(
+        (event) async {
+          final message = LiveMessage.fromJson(event);
 
-        switch (message.type) {
-          case LiveMessageType.registered:
-            state.isUserOnline = true;
-            state.status = LiveSessionStatus.registered;
-            update();
-            break;
+          switch (message.type) {
+            case LiveMessageType.registered:
+              state.isUserOnline = true;
+              state.status = LiveSessionStatus.online;
+              update();
+              break;
 
-          case LiveMessageType.participantJoined:
-            await _handleParticipantJoined(message);
-            break;
+            case LiveMessageType.participantJoined:
+              await _handleParticipantJoined(message);
+              break;
 
-          case LiveMessageType.webrtcOffer:
-            await _handleOffer(message);
-            break;
+            case LiveMessageType.offer:
+              await _handleOffer(message);
+              break;
 
-          case LiveMessageType.webrtcAnswer:
-            await _handleAnswer(message);
-            break;
+            case LiveMessageType.answers:
+              await _handleAnswer(message);
+              break;
 
-          case LiveMessageType.webICECandidate:
-            await _handleRemoteCandidate(message);
-            break;
+            case LiveMessageType.iceCandidate:
+              await _handleRemoteCandidate(message);
+              break;
 
-          default:
-            log("Unhandled message type: ${message.type}");
-        }
-      });
+            default:
+              log("Unhandled message type: ${message.type}");
+          }
+        },
+        onError: (error, stackTrace) {
+          log("❌ WebSocket error: $error");
+          _handleErrors("WebSocket Error", error, stackTrace);
+          onFailure?.call("WebSocket Error: $error");
+          return;
+        },
+        onDone: () {
+          log("⚠️ WebSocket connection closed by server");
+          state.isConnectedToWS = false;
+          state.message = "WebSocket connection closed by server";
+          update();
+          return;
+        },
+      );
 
       state.isConnectedToWS = true;
       update();
@@ -196,72 +283,6 @@ class LiveController extends GetxController {
   }
 
   // ---------------------- WEBRTC HANDLERS ----------------------
-
-  Future<void> joinMeeting({required VoidCallback onSuccess}) async {
-    try {
-      final meetingId = _selectedMeeting.value?.id;
-      if (meetingId == null) throw "Select a meeting first";
-
-      final joinMsg = LiveMessage(
-        type: LiveMessageType.join,
-        meetingId: meetingId,
-      );
-      await _repository.sendWS(joinMsg);
-
-      await _createLocalRenderer();
-
-      state.currentMeeting = _selectedMeeting.value;
-      onSuccess();
-    } catch (e, s) {
-      _handleErrors("joinMeeting", e, s);
-    }
-  }
-
-  // Planning to use it for initiating connection whenever a user
-  // joins a meeting.
-  String? _joinedParticipantId;
-
-  Future<void> callUser({
-    VoidCallback? onSuccess,
-    Function(String error)? onFailure,
-  }) async {
-    try {
-      final remoteUser = _selectedUser.value?.id;
-      if (remoteUser == null) throw Exception("Please Select a user");
-
-      await _createLocalRenderer();
-
-      // Peer connection:
-      // Creating peer connection for Local User <--> Remote User
-      await _createPeerConnection(remoteUser);
-      RTCPeerConnection pc = state.peerConnections[remoteUser]!;
-
-      // Adding Local Tracks (Audio + Video)
-      for (var track in state.localStream!.getTracks()) {
-        await pc.addTrack(track, state.localStream!);
-      }
-
-      // Create offer
-      final offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      // Send offer
-      await _repository.sendWS(
-        LiveMessage(
-          type: LiveMessageType.webrtcOffer,
-          fromId: state.user!.id,
-          targetId: remoteUser,
-          sdp: offer.sdp,
-          sdpType: offer.type,
-        ),
-      );
-      update();
-      onSuccess?.call();
-    } catch (e, s) {
-      _handleErrors("callUser", e, s);
-      onFailure?.call(e.toString());
-    }
-  }
 
   Future<void> _handleParticipantJoined(LiveMessage msg) async {
     final remoteUserId = msg.userId!;
@@ -286,7 +307,7 @@ class LiveController extends GetxController {
     // Send offer
     await _repository.sendWS(
       LiveMessage(
-        type: LiveMessageType.webrtcOffer,
+        type: LiveMessageType.offer,
         sdp: offer.sdp,
         sdpType: offer.type,
         fromId: state.user!.id,
@@ -349,7 +370,7 @@ class LiveController extends GetxController {
     // Sending our answer through our WS
     _repository.sendWS(
       LiveMessage(
-        type: LiveMessageType.webrtcAnswer,
+        type: LiveMessageType.answers,
         sdp: answer.sdp,
         fromId: state.user!.id,
         sdpType: answer.type,
@@ -394,11 +415,11 @@ class LiveController extends GetxController {
         state.peerConnections[remoteUserId] == null) {
       if (!state.peerConnections.containsKey(remoteUserId) ||
           state.peerConnections[remoteUserId] == null) {
-            await _createPeerConnection(remoteUserId);
+        await _createPeerConnection(remoteUserId);
         log(
           "_handleRemoteCandidate: Peer connection not found, queueing candidate",
         );
-        _pendingCandidates.putIfAbsent(remoteUserId, () => []).add(candidate);
+        state.pendingCandidates.putIfAbsent(remoteUserId, () => []).add(candidate);
         return;
       }
       throw Exception("Peer details for this user was not found!");
@@ -461,62 +482,18 @@ class LiveController extends GetxController {
     // Retriving remote renderer for user
     await _createRemoteRenderer(id);
 
-    pc.onIceConnectionState = (RTCIceConnectionState iceState) {
-      if (iceState == RTCIceConnectionState.RTCIceConnectionStateConnected ||
-          iceState == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
-        log("✓ ICE Connection established for $id");
-      }
-    };
-
-    pc.onConnectionState = (RTCPeerConnectionState connState) {
-      if (connState == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-        log("✓ Peer Connection established for $id");
-      }
-    };
-
-    pc.onSignalingState = (RTCSignalingState sigState) {
-      log("Signaling State for $id: $sigState");
-    };
-
-    pc.onIceConnectionState = (RTCIceConnectionState state) {
-      log("ICE Connection State for $id: $state");
-    };
-
-    pc.onConnectionState = (RTCPeerConnectionState state) {
-      log("Connection State for $id: $state");
-    };
-
-    pc.onSignalingState = (RTCSignalingState state) {
-      log("Signaling State for $id: $state");
-    };
-
     // When ever a new track is added by someone on this
     // peer we take the event and add the stream to remote
     // users renderer
     pc.onTrack = (RTCTrackEvent event) {
-      log("════════════════════════════════════════");
-      log("onTrack FIRED for $id");
-      log("Track kind: ${event.track.kind}");
-      log("Track ID: ${event.track.id}");
-      log("Track enabled: ${event.track.enabled}");
-      log("Streams count: ${event.streams.length}");
-      log("════════════════════════════════════════");
       if (event.streams.isNotEmpty) {
         final stream = event.streams[0];
-        log("Stream ID: ${stream.id}");
-        log("Stream tracks: ${stream.getTracks().length}");
-
-        for (var track in stream.getTracks()) {
-          log("  - ${track.kind}: ${track.id}, enabled: ${track.enabled}");
-        }
 
         // Set the stream to the renderer
         state.remoteRenderers[id]!.srcObject = stream;
-        log("✓ Stream assigned to renderer for $id");
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           update();
-          log("UI updated after receiving tracks");
         });
       } else {
         log("onTrack: No streams in event");
@@ -529,7 +506,7 @@ class LiveController extends GetxController {
     pc.onIceCandidate = (RTCIceCandidate candidate) {
       _repository.sendWS(
         LiveMessage(
-          type: LiveMessageType.webICECandidate,
+          type: LiveMessageType.iceCandidate,
           candidate: candidate,
           fromId: state.user!.id,
           targetId: id,
@@ -538,20 +515,13 @@ class LiveController extends GetxController {
       );
     };
 
-    pc.onAddStream = (MediaStream stream) {
-      log("════════════════════════════════════════");
-      log("onAddStream FIRED for $id (legacy callback)");
-      log("Stream ID: ${stream.id}");
-      log("Stream tracks: ${stream.getTracks().length}");
-      log("════════════════════════════════════════");
-    };
     state.peerConnections[id] = pc;
     log("_createPeerConnection: All callbacks set for $id");
   }
 
   Future<void> _processPendingCandidates(String remoteUserId) async {
-    if (_pendingCandidates.containsKey(remoteUserId)) {
-      final candidates = _pendingCandidates[remoteUserId]!;
+    if (state.pendingCandidates.containsKey(remoteUserId)) {
+      final candidates = state.pendingCandidates[remoteUserId]!;
       final pc = state.peerConnections[remoteUserId];
 
       if (pc != null) {
@@ -559,7 +529,7 @@ class LiveController extends GetxController {
           await pc.addCandidate(candidate);
           log("Added pending candidate");
         }
-        _pendingCandidates.remove(remoteUserId);
+        state.pendingCandidates.remove(remoteUserId);
       }
     }
   }
@@ -583,7 +553,7 @@ class LiveController extends GetxController {
       state.localRenderer?.dispose();
 
       state.currentMeeting = null;
-      state.status = LiveSessionStatus.idle;
+      state.status = LiveSessionStatus.online;
       update();
     } catch (e, s) {
       _handleErrors("disconnectMeeting", e, s);
@@ -626,7 +596,7 @@ class LiveController extends GetxController {
       stackTrace: s,
     );
     state.status = LiveSessionStatus.failed;
-    state.errorMessage = error.toString();
+    state.message = error.toString();
     WidgetsBinding.instance.addPostFrameCallback((_) => update());
   }
 }
