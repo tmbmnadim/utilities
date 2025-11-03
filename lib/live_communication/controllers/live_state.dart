@@ -6,10 +6,11 @@ class LiveState {
   MediaStream? localStream;
   Map<String, RTCVideoRenderer> remoteRenderers;
   Map<String, RTCPeerConnection> peerConnections;
-  List<Offer> participants;
+  List<OfferOrAnswer> participants;
   Map<String, List<RTCIceCandidate>> pendingCandidates;
   bool isCandidateComplete = false;
-  List<RTCIceCandidate> collectedCandidates;
+  List<UserCandidates> collectedCandidates;
+  List<OfferOrAnswer> toBeSentAnswers;
   bool isStreaming;
   bool isMuted;
   bool isCameraOff;
@@ -28,8 +29,9 @@ class LiveState {
     Map<String, RTCVideoRenderer>? remoteRenderers,
     Map<String, RTCPeerConnection>? peerConnections,
     Map<String, List<RTCIceCandidate>>? pendingCandidates,
-    List<RTCIceCandidate>? collectedCandidates,
-    List<Offer>? participants,
+    List<UserCandidates>? collectedCandidates,
+    List<OfferOrAnswer>? toBeSentAnswers,
+    List<OfferOrAnswer>? participants,
     this.isStreaming = false,
     this.isMuted = false,
     this.isCameraOff = false,
@@ -47,6 +49,7 @@ class LiveState {
        peerConnections = peerConnections ?? {},
        pendingCandidates = pendingCandidates ?? {},
        participants = participants ?? [],
+       toBeSentAnswers = toBeSentAnswers ?? [],
        collectedCandidates = collectedCandidates ?? [];
 
   List<LiveUser> get availableUsers {

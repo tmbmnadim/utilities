@@ -187,7 +187,7 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
                     AppButtons.expandedButton(
                       text: "Join",
                       onPressed: () {
-                        controller.joinMeeting(
+                        controller.sendMeetingJoinRequest(
                           onSuccess: () {
                             WidgetsBinding.instance.addPostFrameCallback(
                               (_) => Get.to(LiveStreamScreen()),

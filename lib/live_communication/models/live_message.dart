@@ -17,16 +17,14 @@ class LiveMessage {
     : type = LiveMessageType.joinRequest;
 
   /// Send offers to users. For 1 to 1 call the list will have only one
-  /// item. but for meeting it'll contain 1 to multiple items.
-  LiveMessage.sendOffers(this.data) : type = LiveMessageType.offer;
+  /// item. but for meeting it might contain multiple items.
+  LiveMessage.offer(this.data) : type = LiveMessageType.offer;
 
-  /// The answer for an incoming offer
-  LiveMessage.answer(this.data) : type = LiveMessageType.answers;
-
-  /// Joining a meeting
-  LiveMessage.meeting(this.data) : type = LiveMessageType.join;
+  LiveMessage.answer(this.data) : type = LiveMessageType.answer;
 
   LiveMessage.candidate(this.data) : type = LiveMessageType.iceCandidate;
+
+  LiveMessage.leave(this.data) : type = LiveMessageType.leave;
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{'type': type.toMap(), 'data': data.toJson()};
@@ -51,9 +49,9 @@ class LiveMessageData {
   String? meetingId;
   SDPDetails? sdpDetails;
   List<String>? participants;
-  List<Offer>? offers;
-  List<Offer>? answer;
-  List<RTCIceCandidate>? candidates;
+  List<OfferOrAnswer>? offers;
+  List<OfferOrAnswer>? answers;
+  List<UserCandidates>? candidates;
   String? errorMessage;
 
   // This private constructor will be used to
@@ -64,7 +62,7 @@ class LiveMessageData {
     this.meetingId,
     this.sdpDetails,
     this.participants,
-    this.answer,
+    this.answers,
     this.candidates,
     this.errorMessage,
   });
@@ -79,26 +77,32 @@ class LiveMessageData {
 
   /// Required data to send an offer
   /// to another user on 1 to 1 call or a meeting
-  LiveMessageData.offer({required List<Offer> offers});
+  LiveMessageData.offer({required List<OfferOrAnswer> offers});
 
-  LiveMessageData.answer({
-    required String this.from,
-    required String this.to,
-    required this.sdpDetails,
-  });
+  LiveMessageData.answers({required List<OfferOrAnswer> this.answers});
 
   LiveMessageData.candidates({
     required String this.from,
     required String this.to,
-    required List<RTCIceCandidate> this.candidates,
+    required List<UserCandidates> this.candidates,
+  });
+
+  LiveMessageData.meetingOffer({
+    required String this.from,
+    required String this.meetingId,
+    required this.sdpDetails,
+    required List<UserCandidates> this.candidates,
   });
 
   LiveMessageData.meetingAnswer({
     required String this.from,
     required String this.meetingId,
-    required this.sdpDetails,
-    required List<RTCIceCandidate> this.candidates,
+    required List<OfferOrAnswer> this.answers,
+    required List<UserCandidates> this.candidates,
   });
+
+  /// User is registered as online
+  LiveMessageData.leave({required String this.from});
 
   Map<String, dynamic> toMap() {
     final json = {
@@ -113,25 +117,18 @@ class LiveMessageData {
   }
 
   factory LiveMessageData.fromMap(Map<String, dynamic> map) {
-    RTCIceCandidate? rtcIceFrom(dynamic map) {
-      if (map == null) return null;
-      return RTCIceCandidate(
-        map['candidate'],
-        map['sdpMid'],
-        map['sdpMLineIndex'],
-      );
-    }
-
     return LiveMessageData._(
       from: map['from'],
       to: map['to'],
       meetingId: map['meeting_id'],
       sdpDetails: SDPDetails.fromJson(map['sdp_details']),
       participants: map['participants'].map((item) => item['user_id']).toList(),
-      answer: map['participant_answers']
-          .map((item) => Answer.fromJson(item))
+      answers: map['participant_answers']
+          .map((item) => OfferOrAnswer.fromJson(item))
           .toList(),
-      candidates: map['candidates'].map((c) => rtcIceFrom(c)).toList(),
+      candidates: map['candidates']
+          .map((c) => _rtcIceCandidatefromMap(c))
+          .toList(),
       errorMessage: map['message'],
     );
   }
@@ -142,19 +139,23 @@ class LiveMessageData {
       LiveMessageData.fromMap(jsonDecode(source) as Map<String, dynamic>);
 }
 
-class Offer {
+class OfferOrAnswer {
   final String from;
   final String to;
   final SDPDetails sdpDetails;
 
-  Offer({required this.from, required this.to, required this.sdpDetails});
+  OfferOrAnswer({
+    required this.from,
+    required this.to,
+    required this.sdpDetails,
+  });
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{'from': from, 'sdp_details': sdpDetails.toMap()};
   }
 
-  factory Offer.fromMap(Map<String, dynamic> map) {
-    return Offer(
+  factory OfferOrAnswer.fromMap(Map<String, dynamic> map) {
+    return OfferOrAnswer(
       from: map['from'] as String,
       to: map['to'] as String,
       sdpDetails: SDPDetails.fromMap(
@@ -165,55 +166,58 @@ class Offer {
 
   String toJson() => json.encode(toMap());
 
-  factory Offer.fromJson(String source) =>
-      Offer.fromMap(json.decode(source) as Map<String, dynamic>);
+  factory OfferOrAnswer.fromJson(String source) =>
+      OfferOrAnswer.fromMap(json.decode(source) as Map<String, dynamic>);
 }
 
-class Answer {
-  final String from;
-  final String to;
-  final SDPDetails sdpDetails;
+RTCIceCandidate _rtcIceCandidatefromMap(Map<String, dynamic> map) {
+  return RTCIceCandidate(map['candidate'], map['sdpMid'], map['sdpMLineIndex']);
+}
 
-  Answer({required this.from, required this.to, required this.sdpDetails});
+class UserCandidates {
+  String userId;
+  List<RTCIceCandidate> candidates;
+
+  UserCandidates({required this.userId, required this.candidates});
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
-      'from': from,
-      'to': to,
-      'sdp_details': sdpDetails.toMap(),
+      'user_id': userId,
+      'candidates': candidates.map((x) => x.toMap()).toList(),
     };
   }
 
-  factory Answer.fromMap(Map<String, dynamic> map) {
-    return Answer(
-      from: map['from'] as String,
-      to: map['to'] as String,
-      sdpDetails: SDPDetails.fromMap(
-        map['sdp_details'] as Map<String, dynamic>,
+  factory UserCandidates.fromMap(Map<String, dynamic> json) {
+    return UserCandidates(
+      userId: json['user_id'] as String,
+      candidates: List<RTCIceCandidate>.from(
+        (json['candidates'] as List<Map<String, dynamic>>).map<RTCIceCandidate>(
+          (x) => _rtcIceCandidatefromMap(x),
+        ),
       ),
     );
   }
 
-  String toJson() => json.encode(toMap());
+  String toJson() => jsonEncode(toMap());
 
-  factory Answer.fromJson(String source) =>
-      Answer.fromMap(json.decode(source) as Map<String, dynamic>);
+  factory UserCandidates.fromJson(String source) =>
+      UserCandidates.fromMap(jsonDecode(source));
 }
 
 class SDPDetails {
   final String sdp;
-  final String sdpType;
+  final String type;
 
-  SDPDetails({required this.sdp, required this.sdpType});
+  SDPDetails({required this.sdp, required this.type});
 
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{'sdp': sdp, 'sdpType': sdpType};
+    return <String, dynamic>{'sdp': sdp, 'sdpType': type};
   }
 
   factory SDPDetails.fromMap(Map<String, dynamic> map) {
     return SDPDetails(
       sdp: map['sdp'] as String,
-      sdpType: map['sdpType'] as String,
+      type: map['sdpType'] as String,
     );
   }
 
@@ -249,22 +253,17 @@ enum LiveMessageType {
   /// }
   participants,
 
-  /// User sends their sdp.
-  ///
-  /// {from, meeting_id, sdpDetails:{sdp, sdpType}}
-  join,
-
   /// User receives who are already on
   /// the meeting.
   /// {
   ///   offers:{
-  ///     {user_id:sdp_details},
-  ///     {user_id:sdp_details},
+  ///     {from,to,sdp_details:{sdp,sdpType}},
+  ///     {from,to,sdp_details:{sdp,sdpType}},
   ///     ...
   ///     ...
   ///   }
   /// }
-  offers,
+  offer,
 
   /// When other users join the meeting
   /// user is in.
@@ -275,18 +274,11 @@ enum LiveMessageType {
   /// they receives all remaining participants sdp_details
   participantJoined,
 
-  /// User sends an connection offer to
-  /// another user to connect through
-  /// Web RTC.
-  ///
-  /// {from,to,sdp_details:{sdp,sdpType}}
-  offer,
-
   /// When an Web RTC offer is received from other user
   /// user sends an answer
   ///
   /// [{from,to,sdp_details:{sdp,sdpType}}]
-  answers,
+  answer,
 
   /// The users media connection details is sent thourgh
   /// the Web Socket
@@ -297,10 +289,6 @@ enum LiveMessageType {
   /// and In case of a meeting:
   /// {from,meeting_id,candidate}
   iceCandidate,
-
-  /// What are the diff between iceSync and meetingState?
-  iceSync,
-  meetingState,
 
   /// User leaves call or meeting
   /// {from}
@@ -330,24 +318,16 @@ enum LiveMessageType {
         return 'registered';
       case LiveMessageType.joinRequest:
         return 'join_request';
-      case LiveMessageType.join:
-        return 'join';
       case LiveMessageType.participants:
         return 'participants';
-      case LiveMessageType.offers:
-        return 'offers';
       case LiveMessageType.offer:
-        return 'offer';
+        return 'offers';
       case LiveMessageType.participantJoined:
         return 'participant_joined';
-      case LiveMessageType.answers:
+      case LiveMessageType.answer:
         return 'answers';
       case LiveMessageType.iceCandidate:
         return 'ice_candidate';
-      case LiveMessageType.iceSync:
-        return 'ice_sync';
-      case LiveMessageType.meetingState:
-        return 'meeting_state';
       case LiveMessageType.leave:
         return 'leave';
       case LiveMessageType.denied:
@@ -367,25 +347,17 @@ enum LiveMessageType {
         return LiveMessageType.registered;
       case 'join_request':
         return LiveMessageType.joinRequest;
-      case 'join':
-        return LiveMessageType.join;
       case 'participants':
         return LiveMessageType.participants;
       case 'offers':
-        return LiveMessageType.offers;
-      case 'offer':
         return LiveMessageType.offer;
       case 'participant_joined':
         return LiveMessageType.participantJoined;
       case 'answers':
-        return LiveMessageType.answers;
+        return LiveMessageType.answer;
       case 'ice_candidate':
         return LiveMessageType.iceCandidate;
       case 'ice_sync':
-        return LiveMessageType.iceSync;
-      case 'meeting_state':
-        return LiveMessageType.meetingState;
-      case 'leave':
         return LiveMessageType.leave;
       case 'denied':
         return LiveMessageType.denied;

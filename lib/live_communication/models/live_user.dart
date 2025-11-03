@@ -15,7 +15,7 @@ class LiveUser {
     return LiveUser(
       id: json['id'],
       name: json['name'],
-      isOnline: json['is_online'],
+      isOnline: json['is_online'] ?? false,
       createdAt: DateTime.tryParse(json['created_at']) ?? DateTime.now(),
     );
   }
