@@ -27,13 +27,13 @@ class LiveMessage {
   LiveMessage.leave(this.data) : type = LiveMessageType.leave;
 
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{'type': type.toMap(), 'data': data.toJson()};
+    return <String, dynamic>{'type': type.toMap(), 'data': data.toMap()};
   }
 
   factory LiveMessage.fromMap(Map<String, dynamic> map) {
     return LiveMessage._(
       type: LiveMessageType.fromMap(map['type']),
-      data: LiveMessageData.fromJson(map['data']),
+      data: LiveMessageData.fromMap(map['data']),
     );
   }
 
@@ -108,9 +108,13 @@ class LiveMessageData {
     final json = {
       if (from != null) 'from': from,
       if (to != null) 'to': to,
-      if (sdpDetails != null) 'sdp_details': sdpDetails,
       if (meetingId != null) 'meeting_id': meetingId,
-      if (candidates != null) 'candidates': candidates!.map((c) => c.toMap()),
+      if (sdpDetails != null) 'sdp_details': sdpDetails?.toMap(),
+      if (participants != null) 'participants': participants,
+      if (offers != null) 'offers': offers!.map((e) => e.toMap()).toList(),
+      if (answers != null) 'answers': answers!.map((e) => e.toMap()).toList(),
+      if (candidates != null)
+        'candidates': candidates!.map((c) => c.toMap()).toList(),
       if (errorMessage != null) 'message': errorMessage,
     };
     return json;
@@ -121,22 +125,25 @@ class LiveMessageData {
       from: map['from'],
       to: map['to'],
       meetingId: map['meeting_id'],
-      sdpDetails: SDPDetails.fromJson(map['sdp_details']),
-      participants: map['participants'].map((item) => item['user_id']).toList(),
-      answers: map['participant_answers']
-          .map((item) => OfferOrAnswer.fromJson(item))
-          .toList(),
-      candidates: map['candidates']
-          .map((c) => _rtcIceCandidatefromMap(c))
-          .toList(),
+      sdpDetails: map['sdp_details'] == null
+          ? null
+          : SDPDetails.fromMap(map['sdp_details']),
+      participants: map['participants'] != null
+          ? List<String>.from(map['participants'])
+          : null,
+      answers: map['answers'] != null
+          ? (map['answers'] as List)
+                .map((item) => OfferOrAnswer.fromMap(item))
+                .toList()
+          : null,
+      candidates: map['candidates'] != null
+          ? (map['candidates'] as List)
+                .map((c) => UserCandidates.fromMap(c))
+                .toList()
+          : null,
       errorMessage: map['message'],
     );
   }
-
-  String toJson() => jsonEncode(toMap());
-
-  factory LiveMessageData.fromJson(String source) =>
-      LiveMessageData.fromMap(jsonDecode(source) as Map<String, dynamic>);
 }
 
 class OfferOrAnswer {
@@ -220,11 +227,6 @@ class SDPDetails {
       type: map['sdpType'] as String,
     );
   }
-
-  String toJson() => json.encode(toMap());
-
-  factory SDPDetails.fromJson(String source) =>
-      SDPDetails.fromMap(json.decode(source) as Map<String, dynamic>);
 }
 
 enum LiveMessageType {
@@ -325,7 +327,7 @@ enum LiveMessageType {
       case LiveMessageType.participantJoined:
         return 'participant_joined';
       case LiveMessageType.answer:
-        return 'answers';
+        return 'answer';
       case LiveMessageType.iceCandidate:
         return 'ice_candidate';
       case LiveMessageType.leave:
@@ -357,7 +359,7 @@ enum LiveMessageType {
         return LiveMessageType.answer;
       case 'ice_candidate':
         return LiveMessageType.iceCandidate;
-      case 'ice_sync':
+      case 'leave':
         return LiveMessageType.leave;
       case 'denied':
         return LiveMessageType.denied;

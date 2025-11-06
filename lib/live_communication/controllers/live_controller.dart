@@ -240,6 +240,7 @@ class LiveController extends GetxController {
               break;
             case LiveMessageType.registered:
               state.isUserOnline = true;
+              log("REGISTERED");
               state.status = LiveSessionStatus.online;
               update();
               break;
@@ -549,14 +550,17 @@ class LiveController extends GetxController {
     pc.onIceGatheringState = (RTCIceGatheringState gatheringState) {
       if (gatheringState == RTCIceGatheringState.RTCIceGatheringStateComplete) {
         // Sending our answer through our WS
+
         _repository.sendWS(
           LiveMessage.answer(
-            LiveMessageData.meetingAnswer(
-              from: state.user!.id,
-              meetingId: state.currentMeeting!.id,
-              answers: state.toBeSentAnswers,
-              candidates: state.collectedCandidates,
-            ),
+            state.currentMeeting == null
+                ? LiveMessageData.answers(answers: state.toBeSentAnswers)
+                : LiveMessageData.meetingAnswer(
+                    from: state.user!.id,
+                    meetingId: state.currentMeeting!.id,
+                    answers: state.toBeSentAnswers,
+                    candidates: state.collectedCandidates,
+                  ),
           ),
         );
       }
