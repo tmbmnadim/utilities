@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:utilities/live_communication/models/live_meeting.dart';
-import 'package:utilities/live_communication/models/live_message.dart';
 import 'package:utilities/live_communication/models/live_user.dart';
 import 'package:utilities/live_communication/models/server_error.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -69,7 +67,7 @@ class LiveSource {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'name': name, 'hostUserId': hostUserId}),
+        body: jsonEncode({'title': name, 'host_id': hostUserId}),
       );
 
       final resBody = jsonDecode(response.body) as Map<String, dynamic>;

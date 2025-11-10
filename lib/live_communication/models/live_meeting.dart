@@ -1,20 +1,18 @@
 class LiveMeeting {
   final String id;
-  final String hostUserId;
+  final String hostId;
   final List<String> participantIds;
-  final String name;
-  final String type;
-  final DateTime? startedAt;
+  final String title;
+  final DateTime? createdAt;
   final DateTime? endedAt;
   final List<String> participants;
 
   LiveMeeting({
     required this.id,
-    required this.hostUserId,
+    required this.hostId,
     this.participantIds = const [],
-    required this.name,
-    this.type = 'conference',
-    required this.startedAt,
+    required this.title,
+    required this.createdAt,
     required this.endedAt,
     required this.participants,
   });
@@ -25,45 +23,41 @@ class LiveMeeting {
     List<String> participantIds = List<String>.from(participants);
     participantIds.removeWhere((e) => e.isEmpty);
     return LiveMeeting(
-      id: json['meetingId'],
-      hostUserId: json['hostUserId']??"N/A",
+      id: json['id'],
+      hostId: json['host_id']??"N/A",
       participantIds: participantIds,
-      name: json['name']??"N/A",
-      type: json['type']??"N/A",
-      startedAt: DateTime.tryParse(json['startedAt']??"N/A"),
+      title: json['title']??"N/A",
+      createdAt: DateTime.tryParse(json['created_at']??"N/A"),
       endedAt: DateTime.tryParse(json['endedAt']??"N/A"),
       participants: List<String>.from(json['participants'] ?? []),
     );
   }
 
   Map<String, dynamic> toJson() => {
-    // 'meetingId': id,
-    'name': name,
-    'hostUserId': hostUserId,
+    'title': title,
+    'host_id': hostId,
     'participantIds': participantIds,
-    'type': type,
-    'startedAt': startedAt,
+    'startedAt': createdAt,
     'endedAt': endedAt,
     'participants': participants,
   };
 
   LiveMeeting copyWith({
     String? id,
-    String? hostUserId,
+    String? hostId,
     List<String>? participantIds,
-    String? name,
+    String? title,
     String? type,
-    DateTime? startedAt,
+    DateTime? createdAt,
     DateTime? endedAt,
     List<String>? participants,
   }) {
     return LiveMeeting(
       id: id ?? this.id,
-      hostUserId: hostUserId ?? this.hostUserId,
+      hostId: hostId ?? this.hostId,
       participantIds: participantIds ?? this.participantIds,
-      name: name ?? this.name,
-      type: type ?? this.type,
-      startedAt: startedAt ?? this.startedAt,
+      title: title ?? this.title,
+      createdAt: createdAt ?? this.createdAt,
       endedAt: endedAt ?? this.endedAt,
       participants: participants ?? this.participants,
     );

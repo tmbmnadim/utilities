@@ -62,6 +62,7 @@ class LiveMessageData {
     this.meetingId,
     this.sdpDetails,
     this.participants,
+    this.offers,
     this.answers,
     this.candidates,
     this.errorMessage,
@@ -77,7 +78,7 @@ class LiveMessageData {
 
   /// Required data to send an offer
   /// to another user on 1 to 1 call or a meeting
-  LiveMessageData.offer({required List<OfferOrAnswer> offers});
+  LiveMessageData.offer({required List<OfferOrAnswer> this.offers});
 
   LiveMessageData.answers({required List<OfferOrAnswer> this.answers});
 
@@ -136,6 +137,11 @@ class LiveMessageData {
                 .map((item) => OfferOrAnswer.fromMap(item))
                 .toList()
           : null,
+      offers: map['offers'] != null
+          ? (map['offers'] as List)
+                .map((item) => OfferOrAnswer.fromMap(item))
+                .toList()
+          : null,
       candidates: map['candidates'] != null
           ? (map['candidates'] as List)
                 .map((c) => UserCandidates.fromMap(c))
@@ -158,7 +164,11 @@ class OfferOrAnswer {
   });
 
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{'from': from, 'sdp_details': sdpDetails.toMap()};
+    return <String, dynamic>{
+      'from': from,
+      'to': to,
+      'sdp_details': sdpDetails.toMap(),
+    };
   }
 
   factory OfferOrAnswer.fromMap(Map<String, dynamic> map) {
@@ -170,11 +180,6 @@ class OfferOrAnswer {
       ),
     );
   }
-
-  String toJson() => json.encode(toMap());
-
-  factory OfferOrAnswer.fromJson(String source) =>
-      OfferOrAnswer.fromMap(json.decode(source) as Map<String, dynamic>);
 }
 
 RTCIceCandidate _rtcIceCandidatefromMap(Map<String, dynamic> map) {
@@ -323,7 +328,7 @@ enum LiveMessageType {
       case LiveMessageType.participants:
         return 'participants';
       case LiveMessageType.offer:
-        return 'offers';
+        return 'offer';
       case LiveMessageType.participantJoined:
         return 'participant_joined';
       case LiveMessageType.answer:
@@ -351,11 +356,11 @@ enum LiveMessageType {
         return LiveMessageType.joinRequest;
       case 'participants':
         return LiveMessageType.participants;
-      case 'offers':
+      case 'offer':
         return LiveMessageType.offer;
       case 'participant_joined':
         return LiveMessageType.participantJoined;
-      case 'answers':
+      case 'answer':
         return LiveMessageType.answer;
       case 'ice_candidate':
         return LiveMessageType.iceCandidate;

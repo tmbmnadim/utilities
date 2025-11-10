@@ -196,19 +196,20 @@ class LiveController extends GetxController {
       // Send offer
       // We send one offer in the list because this is a one to one
       // call. Incase of meetings multiple offers might be required.
-      await _repository.sendWS(
-        LiveMessage.offer(
-          LiveMessageData.offer(
-            offers: [
-              OfferOrAnswer(
-                from: state.user!.id,
-                to: to,
-                sdpDetails: SDPDetails(sdp: offer.sdp!, type: offer.type!),
-              ),
-            ],
-          ),
+
+      final offerMsg = LiveMessage.offer(
+        LiveMessageData.offer(
+          offers: [
+            OfferOrAnswer(
+              from: state.user!.id,
+              to: to,
+              sdpDetails: SDPDetails(sdp: offer.sdp!, type: offer.type!),
+            ),
+          ],
         ),
       );
+
+      await _repository.sendWS(offerMsg);
       onSuccess?.call();
     } catch (e, s) {
       _handleErrors("callUser", e, s);
@@ -240,7 +241,7 @@ class LiveController extends GetxController {
               break;
             case LiveMessageType.registered:
               state.isUserOnline = true;
-              log("REGISTERED");
+              // state.user = LiveUser.fromJson(event['message']);
               state.status = LiveSessionStatus.online;
               update();
               break;
@@ -361,12 +362,6 @@ class LiveController extends GetxController {
       // maybe something went wrong. We recreate one for our
       // remote user.
       RTCPeerConnection pc = state.peerConnections[remoteUserId]!;
-      if (state.localStream != null) {
-        for (var track in state.localStream!.getTracks()) {
-          await pc.addTrack(track, state.localStream!);
-        }
-      }
-      log("_handleOffer: $state.peerConnections");
 
       // Setting remote description for remote user.
       await pc.setRemoteDescription(
@@ -548,9 +543,9 @@ class LiveController extends GetxController {
     pc.onIceCandidate = userCandidate.candidates.add;
 
     pc.onIceGatheringState = (RTCIceGatheringState gatheringState) {
+      print("ICE GATHERING STATE: ${gatheringState.toString()}");
       if (gatheringState == RTCIceGatheringState.RTCIceGatheringStateComplete) {
         // Sending our answer through our WS
-
         _repository.sendWS(
           LiveMessage.answer(
             state.currentMeeting == null

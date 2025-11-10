@@ -307,7 +307,7 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
             items: controller.state.availableMeetings.map((meeting) {
               return DropdownMenuItem<LiveMeeting?>(
                 value: meeting,
-                child: Text(meeting.name),
+                child: Text(meeting.title),
               );
             }).toList(),
             onChanged: (LiveMeeting? newValue) {
