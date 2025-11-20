@@ -26,6 +26,11 @@ class LiveMessage {
 
   LiveMessage.leave(this.data) : type = LiveMessageType.leave;
 
+  /// Heartbeat response to keep the connection alive
+  LiveMessage.pong()
+    : type = LiveMessageType.pong,
+      data = LiveMessageData.pong();
+
   Map<String, dynamic> toMap() {
     return <String, dynamic>{'type': type.toMap(), 'data': data.toMap()};
   }
@@ -33,7 +38,9 @@ class LiveMessage {
   factory LiveMessage.fromMap(Map<String, dynamic> map) {
     return LiveMessage._(
       type: LiveMessageType.fromMap(map['type']),
-      data: LiveMessageData.fromMap(map['data']),
+      data: map['data'] != null
+          ? LiveMessageData.fromMap(map['data'])
+          : LiveMessageData.pong(), // Handle empty data for ping/pong
     );
   }
 
@@ -104,6 +111,9 @@ class LiveMessageData {
 
   /// User is registered as online
   LiveMessageData.leave({required String this.from});
+
+  /// Empty data for heartbeat
+  LiveMessageData.pong();
 
   Map<String, dynamic> toMap() {
     final json = {
@@ -203,7 +213,7 @@ class UserCandidates {
     return UserCandidates(
       userId: json['user_id'] as String,
       candidates: List<RTCIceCandidate>.from(
-        (json['candidates'] as List<Map<String, dynamic>>).map<RTCIceCandidate>(
+        (json['candidates'] as List).map<RTCIceCandidate>(
           (x) => _rtcIceCandidatefromMap(x),
         ),
       ),
@@ -313,6 +323,12 @@ enum LiveMessageType {
   /// {from}
   participantLeft,
 
+  /// Server Ping to check connectivity
+  ping,
+
+  /// Client Pong to acknowledge Ping
+  pong,
+
   /// Something went wrong
   /// {message}
   error;
@@ -341,6 +357,10 @@ enum LiveMessageType {
         return 'denied';
       case LiveMessageType.participantLeft:
         return 'participant_left';
+      case LiveMessageType.ping:
+        return 'ping';
+      case LiveMessageType.pong:
+        return 'pong';
       case LiveMessageType.error:
         return 'error';
     }
@@ -370,6 +390,10 @@ enum LiveMessageType {
         return LiveMessageType.denied;
       case 'participant_left':
         return LiveMessageType.participantLeft;
+      case 'ping':
+        return LiveMessageType.ping;
+      case 'pong':
+        return LiveMessageType.pong;
       case 'error':
         return LiveMessageType.error;
       default:

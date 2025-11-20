@@ -237,7 +237,14 @@ class LiveController extends GetxController {
           switch (message.type) {
             case LiveMessageType.register:
             case LiveMessageType.joinRequest:
+            case LiveMessageType.pong:
             case LiveMessageType.leave:
+              break;
+            case LiveMessageType.ping:
+              // Server sent a ping, we must reply with pong immediately
+              // We don't need to update UI, just keep connection alive.
+              _repository.sendWS(LiveMessage.pong());
+              log("💓 Received Ping, sent Pong");
               break;
             case LiveMessageType.registered:
               state.isUserOnline = true;
@@ -373,7 +380,7 @@ class LiveController extends GetxController {
       final answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await _processPendingCandidates(remoteUserId);
-      state.toBeSentAnswers.add(
+      state.generatedAnswers.add(
         OfferOrAnswer(
           from: state.user!.id,
           to: remoteUserId,
@@ -381,6 +388,11 @@ class LiveController extends GetxController {
         ),
       );
     }
+    _repository.sendWS(
+      LiveMessage.answer(
+        LiveMessageData.answers(answers: state.generatedAnswers),
+      ),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => update());
   }
 
@@ -532,6 +544,9 @@ class LiveController extends GetxController {
       }
     };
 
+    // Clean up old candidates for this specific user to avoid duplicates on rejoin
+    state.collectedCandidates.removeWhere((c) => c.userId == id);
+
     // Our Ice Candidate was retrieved.
     // we send it to remote user for them to
     // use it to make the connection
@@ -545,17 +560,20 @@ class LiveController extends GetxController {
     pc.onIceGatheringState = (RTCIceGatheringState gatheringState) {
       print("ICE GATHERING STATE: ${gatheringState.toString()}");
       if (gatheringState == RTCIceGatheringState.RTCIceGatheringStateComplete) {
+        // OPTIMIZATION: Filter list to only send candidates meant for 'id'
+        // This prevents sending User C's candidates to User B.
+        final batch = state.collectedCandidates
+            .where((c) => c.userId == id)
+            .toList();
+
         // Sending our answer through our WS
         _repository.sendWS(
-          LiveMessage.answer(
-            state.currentMeeting == null
-                ? LiveMessageData.answers(answers: state.toBeSentAnswers)
-                : LiveMessageData.meetingAnswer(
-                    from: state.user!.id,
-                    meetingId: state.currentMeeting!.id,
-                    answers: state.toBeSentAnswers,
-                    candidates: state.collectedCandidates,
-                  ),
+          LiveMessage.candidate(
+            LiveMessageData.candidates(
+              from: state.user!.id,
+              to: id,
+              candidates: batch,
+            ),
           ),
         );
       }
@@ -599,6 +617,8 @@ class LiveController extends GetxController {
       }
       state.remoteRenderers.clear();
       state.localRenderer?.dispose();
+      state.collectedCandidates.clear();
+      state.generatedAnswers.clear();
 
       state.currentMeeting = null;
       state.status = LiveSessionStatus.online;

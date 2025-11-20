@@ -99,14 +99,22 @@ class _LiveSetupScreenState extends State<LiveSetupScreen> {
                     text: "Connect to server!",
                     onPressed: () {
                       if (!state.isConnectedToWS) {
+                        EasyLoading.show(status: "Connecting to ws");
                         controller.connectWS(
                           onSuccess: (msg) {
                             EasyLoading.showInfo(msg);
+                            EasyLoading.dismiss();
+                          },
+                          onFailure: (e) {
+                            EasyLoading.showError(e);
+                            EasyLoading.dismiss();
                           },
                         );
                       }
                       if (!state.isUserOnline) {
+                        EasyLoading.show(status: "Connecting to ws");
                         controller.registerUser();
+                        EasyLoading.dismiss();
                       }
                     },
                   ),

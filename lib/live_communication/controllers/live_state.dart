@@ -10,7 +10,7 @@ class LiveState {
   Map<String, List<RTCIceCandidate>> pendingCandidates;
   bool isCandidateComplete = false;
   List<UserCandidates> collectedCandidates;
-  List<OfferOrAnswer> toBeSentAnswers;
+  List<OfferOrAnswer> generatedAnswers;
   bool isStreaming;
   bool isMuted;
   bool isCameraOff;
@@ -49,7 +49,7 @@ class LiveState {
        peerConnections = peerConnections ?? {},
        pendingCandidates = pendingCandidates ?? {},
        participants = participants ?? [],
-       toBeSentAnswers = toBeSentAnswers ?? [],
+       generatedAnswers = toBeSentAnswers ?? [],
        collectedCandidates = collectedCandidates ?? [];
 
   List<LiveUser> get availableUsers {
