@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:get/get.dart';
-import 'package:utilities/live_communication/controllers/live_controller.dart';
+import 'package:utilities/communication/controllers/chat_controller.dart';
 
 class LiveStreamScreen extends StatefulWidget {
   final bool isNewCall;
@@ -12,14 +12,14 @@ class LiveStreamScreen extends StatefulWidget {
 }
 
 class _LiveStreamScreenState extends State<LiveStreamScreen> {
-  final liveCtrl = Get.find<LiveController>();
+  final liveCtrl = Get.find<ChatController>();
 
   @override
   void initState() {
     super.initState();
     if (widget.isNewCall) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        liveCtrl.callUser(onSuccess: () {});
+        liveCtrl.startChatCall(onSuccess: () {});
       });
     }
   }
@@ -34,7 +34,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Stream')),
-      body: GetBuilder<LiveController>(
+      body: GetBuilder<ChatController>(
         builder: (a) {
           final remoteRenderers = liveCtrl.state.remoteRenderers;
           return Column(

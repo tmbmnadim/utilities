@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:utilities/live_communication/models/live_message.dart';
-import 'package:utilities/live_communication/sources/live_source.dart';
+import 'package:utilities/communication/models/live_message.dart';
+import 'package:utilities/communication/sources/live_source.dart';
 import 'package:utilities/utils/data_state.dart';
 import 'package:utilities/utils/repository_error_handler.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import '../models/live_user.dart';
+import '../../shared/models/user.dart';
 import '../models/live_meeting.dart';
 
 class LiveRepository {

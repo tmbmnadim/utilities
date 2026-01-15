@@ -4,9 +4,9 @@ import '../models/chat_message_model.dart';
 
 abstract class OpenAIRemoteDataSource {
   Future<String> initialize();
-  Future<ChatMessageModel> sendPrompt(
+  Future<AiMessageModel> sendPrompt(
     String prompt, {
-    required List<ChatMessageModel> history,
+    required List<AiMessageModel> history,
     required String model,
   });
 }
@@ -33,9 +33,9 @@ class OpenAIRemoteDataSourceImpl implements OpenAIRemoteDataSource {
   }
 
   @override
-  Future<ChatMessageModel> sendPrompt(
+  Future<AiMessageModel> sendPrompt(
     String prompt, {
-    required List<ChatMessageModel> history,
+    required List<AiMessageModel> history,
     required String model,
   }) async {
     final messages = [
@@ -66,7 +66,7 @@ class OpenAIRemoteDataSourceImpl implements OpenAIRemoteDataSource {
           .toList(),
     );
 
-    final output = ChatMessageModel(
+    final output = AiMessageModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       content:
           chatCompletion.choices.first.message.content?.first.text?.trim() ??

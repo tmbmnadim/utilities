@@ -8,9 +8,9 @@ class SendMessageUseCase {
 
   SendMessageUseCase(this.repository);
 
-  Future<DataState<ChatMessage>> call(
+  Future<DataState<AiMessage>> call(
     String prompt, {
-    required List<ChatMessage> history,
+    required List<AiMessage> history,
     required String model,
   }) {
     return repository.sendMessage(prompt, history: history, model: model);

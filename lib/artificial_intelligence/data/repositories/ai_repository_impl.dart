@@ -21,15 +21,15 @@ class AIRepositoryImpl implements AIRepository {
   }
 
   @override
-  Future<DataState<ChatMessage>> sendMessage(
+  Future<DataState<AiMessage>> sendMessage(
     String prompt, {
-    required List<ChatMessage> history,
+    required List<AiMessage> history,
     required String model,
   }) async {
-    return RepositoryErrorHandler.call<ChatMessage>(
+    return RepositoryErrorHandler.call<AiMessage>(
       network: () {
         final historyModels = history
-            .map((m) => ChatMessageModel.fromEntity(m))
+            .map((m) => AiMessageModel.fromEntity(m))
             .toList();
         return remoteDataSource.sendPrompt(
           prompt,

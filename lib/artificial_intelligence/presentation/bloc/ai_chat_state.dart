@@ -17,7 +17,7 @@ enum AiChatStatus {
 @immutable
 class AiChatState extends Equatable {
   final AiChatStatus status;
-  final List<ChatMessage> messages;
+  final List<AiMessage> messages;
   final String? model;
   final String? error;
 
@@ -30,7 +30,7 @@ class AiChatState extends Equatable {
 
   AiChatState copyWith({
     AiChatStatus? status,
-    List<ChatMessage>? messages,
+    List<AiMessage>? messages,
     String? model,
     String? error,
   }) {

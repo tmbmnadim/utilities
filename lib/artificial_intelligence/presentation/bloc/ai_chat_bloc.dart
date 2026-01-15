@@ -46,7 +46,7 @@ class AiChatBloc extends Bloc<AiChatEvent, AiChatState> {
     Emitter<AiChatState> emit,
   ) async {
     try {
-      final userMsg = ChatMessage(
+      final userMsg = AiMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         content: event.prompt,
         isUser: true,

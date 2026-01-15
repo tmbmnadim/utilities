@@ -1,10 +1,10 @@
-class ChatMessage {
+class AiMessage {
   final String id;
   final String content;
   final bool isUser;
   final DateTime timestamp;
 
-  const ChatMessage({
+  const AiMessage({
     required this.id,
     required this.content,
     required this.isUser,

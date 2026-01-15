@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 
+class ChatColors {
+  static const Color primary = Color(0xFF00796B); // Teal 700
+  static const Color primaryLight = Color(0xFFB2DFDB); // Teal 100
+  static const Color background = Color(0xFFF5F7FB); // Light Grey-Blue
+  static const Color surface = Colors.white;
+  static const Color textDark = Color(0xFF263238); // Blue Grey 900
+  static const Color textLight = Color(0xFF78909C); // Blue Grey 400
+  static const Color myMessageBubble = Color(0xFF00796B);
+  static const Color otherMessageBubble = Colors.white;
+  static const Color error = Color(0xFFE57373);
+}
+
 class MLTheme {
   static final ThemeData mlKitTheme = ThemeData(
     useMaterial3: true,

@@ -1,15 +1,15 @@
 import '../../domain/entities/chat_message.dart';
 
-class ChatMessageModel extends ChatMessage {
-  const ChatMessageModel({
+class AiMessageModel extends AiMessage {
+  const AiMessageModel({
     required super.id,
     required super.content,
     required super.isUser,
     required super.timestamp,
   });
 
-  factory ChatMessageModel.fromEntity(ChatMessage entity) {
-    return ChatMessageModel(
+  factory AiMessageModel.fromEntity(AiMessage entity) {
+    return AiMessageModel(
       id: entity.id,
       content: entity.content,
       isUser: entity.isUser,
@@ -17,7 +17,7 @@ class ChatMessageModel extends ChatMessage {
     );
   }
 
-  ChatMessage toEntity() => ChatMessage(
+  AiMessage toEntity() => AiMessage(
         id: id,
         content: content,
         isUser: isUser,

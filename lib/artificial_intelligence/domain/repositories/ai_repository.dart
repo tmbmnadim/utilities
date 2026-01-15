@@ -4,9 +4,9 @@ import '../entities/chat_message.dart';
 
 abstract class AIRepository {
   Future<DataState<void>> initialize();
-  Future<DataState<ChatMessage>> sendMessage(
+  Future<DataState<AiMessage>> sendMessage(
     String prompt, {
-    required List<ChatMessage> history,
+    required List<AiMessage> history,
     required String model,
   });
 }

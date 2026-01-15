@@ -4,9 +4,11 @@ import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:utilities/api/view/api_page.dart';
 import 'package:utilities/artificial_intelligence/presentation/view/ai_base.dart';
+import 'package:utilities/communication/controllers/chat_controller.dart';
+import 'package:utilities/communication/view/chat_setup.dart';
 import 'package:utilities/google_map/view/map_page.dart';
 import 'package:utilities/google_ml_kit/view/ml_kit_screen.dart';
-import 'package:utilities/live_communication/view/live_setup_screen.dart';
+import 'package:utilities/communication/view/chat_screen.dart';
 import 'package:utilities/shared/controller/home_controller.dart';
 import 'package:utilities/shared/controller/permission_controller.dart';
 import 'package:utilities/utils/buttons.dart';
@@ -58,54 +60,13 @@ class _HomeState extends State<Home> {
             },
           ),
           AppButtons.expandedButton(
-            text: "AI Chat",
+            text: "Chat",
             onPressed: () {
-              Get.to(AiChatBase());
-            },
-          ),
-          AppButtons.expandedButton(
-            text: "Live Video",
-            onPressed: () {
-              Get.to(LiveSetupScreen());
+              Get.to(ChatSetupScreen());
             },
           ),
         ],
       ),
-      // body: PageView(
-      //   physics: NeverScrollableScrollPhysics(),
-      //   controller: homeCtrl.pageController,
-      //   children: homeCtrl.pages,
-      // ),
-      // bottomNavigationBar: BottomNavigationBar(
-      //   currentIndex: homeCtrl.currentIndex,
-      //   type: BottomNavigationBarType.fixed,
-      //   backgroundColor: Theme.of(context).colorScheme.primary,
-      //   selectedItemColor: Theme.of(context).colorScheme.onPrimary,
-      //   unselectedItemColor: Theme.of(context).colorScheme.primaryFixedDim,
-      //   onTap: (value) {
-      //     if (!permissionCtrl.location.isGranted && value == 1) {
-      //       permissionCtrl.getLocationPermissions();
-      //       EasyLoading.showError("Location Permission is required!");
-      //       return;
-      //     }
-      //     homeCtrl.animateToPage(value);
-      //   },
-      //   items: [
-      //     BottomNavigationBarItem(
-      //       icon: Icon(Icons.home_filled),
-      //       label: "API",
-      //     ),
-      //     BottomNavigationBarItem(icon: Icon(Icons.map), label: "Map"),
-      //     BottomNavigationBarItem(
-      //       icon: Icon(Icons.computer),
-      //       label: "ML Kit",
-      //     ),
-      //     BottomNavigationBarItem(
-      //       icon: Icon(Icons.chat_rounded),
-      //       label: "Chat AI",
-      //     ),
-      //   ],
-      // ),
     );
   }
 }

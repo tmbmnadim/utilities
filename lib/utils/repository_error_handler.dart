@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:utilities/live_communication/models/server_error.dart';
+import 'package:utilities/communication/models/server_error.dart';
 import 'package:utilities/utils/exceptions.dart';
 
 import 'data_state.dart';

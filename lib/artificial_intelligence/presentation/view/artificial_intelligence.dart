@@ -72,7 +72,7 @@ class _ChatScreenState extends State<_AiChatScreen> {
                   'Unable to connect to the AI service. Please check your connection and try again.',
             );
           }
-          List<ChatMessage> messages = state.messages;
+          List<AiMessage> messages = state.messages;
           bool isLoading = state.status.isLoading;
           return Column(
             children: [
@@ -334,7 +334,7 @@ class _ChatScreenState extends State<_AiChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
+  Widget _buildMessageBubble(AiMessage message) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(

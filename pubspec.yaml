@@ -36,13 +36,13 @@ dependencies:
   google_mlkit_face_mesh_detection: ^0.4.1
   google_mlkit_image_labeling: ^0.14.1
   google_mlkit_commons: ^0.11.0
-  camera_android: ^0.10.10+10
   dart_openai: ^5.1.0
   flutter_bloc: ^9.1.1
   get_it: ^8.2.0
   flutter_webrtc: ^1.2.0
   web_socket_channel: ^3.0.3
   device_info_plus: ^12.2.0
+  camera_android: ^0.10.10+6
 
 dev_dependencies:
   flutter_test:

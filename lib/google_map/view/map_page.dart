@@ -14,6 +14,19 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  List<LatLng> deploymentLocations = [
+    LatLng(23.777299, 90.3957221),
+    LatLng(23.781063, 90.3962251),
+  ];
+  List<List<LatLng>> pressureZones = [
+    [
+      LatLng(23.782658835861422, 90.40231908818114),
+      LatLng(23.78182432341096, 90.40458287251417),
+      LatLng(23.78091126247604, 90.40474380504968),
+      LatLng(23.78119598108994, 90.40157879851775),
+      LatLng(23.782658835861422, 90.40231908818114),
+    ],
+  ];
   final locationCtrl = Get.find<LocationController>();
   Timer? _timer;
   @override
@@ -53,6 +66,29 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Generate Heatmap Circles
+    final Set<Circle> heatmapCircles = deploymentLocations.map((loc) {
+      return Circle(
+        circleId: CircleId(loc.toString()),
+        center: loc,
+        radius: 300, // Radius in meters (adjust based on density needs)
+        strokeWidth: 0,
+        fillColor: Colors.orange.withOpacity(
+          0.15,
+        ), // Overlapping creates "Heat"
+      );
+    }).toSet();
+
+    // 2. Generate Pressure Zone Polygons (Overcapacity Alerts)
+    final Set<Polygon> alertZones = pressureZones.asMap().entries.map((entry) {
+      return Polygon(
+        polygonId: PolygonId("zone_${entry.key}"),
+        points: entry.value,
+        fillColor: Colors.redAccent.withOpacity(0.3),
+        strokeColor: Colors.redAccent,
+        strokeWidth: 2,
+      );
+    }).toSet();
     return Scaffold(
       appBar: AppBar(title: Text("Google Map")),
       backgroundColor: Color(0xFFFFFFE4),
@@ -72,6 +108,10 @@ class _MapScreenState extends State<MapScreen> {
                     markers: ctrl.markers,
                     tiltGesturesEnabled: false,
                     onCameraMove: ctrl.onCameraMove,
+                    circles: heatmapCircles,
+                    polygons: alertZones,
+                    myLocationButtonEnabled: false,
+                    mapToolbarEnabled: false,
                     onTap: (coord) {
                       ctrl.destination = coord;
                       _showBottomSheet(context, coord);
